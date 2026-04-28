@@ -485,18 +485,20 @@ function enviarWhats(id){
   var tec=tecnicos.find(t=>t.id===c.tecnicoId);
   if(!tec||!tec.whatsapp){toast('⚠️ Técnico sem WhatsApp.');return;}
   var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
-  var link=window.location.href.split('?')[0];
+  // Link direto com ID do técnico — ao clicar ele já entra nos seus chamados
+  var base=window.location.href.split('?')[0].split('#')[0];
+  var linkTec=base+'?tec='+encodeURIComponent(tec.id);
   var msg=encodeURIComponent(
-    `🔧 *Chamado de Manutenção · ${PRIO[c.prioridade||'media']}*\n\n`+
-    `*OS:* ${c.id}\n`+
-    `*Ocorrência:* ${titulo}\n`+
-    (c.equipamento?`*Equipamento:* ${c.equipamento}\n`:'')+
-    (c.patrimonio?`*Patrimônio:* ${c.patrimonio}\n`:'')+
-    (c.unidade?`*Setor:* ${c.unidade}\n`:'')+
-    (c.abertura?`*Abertura:* ${c.abertura}\n`:'')+
-    `\nAcesse o sistema para ver e atualizar:\n${link}`
+    '🔧 *Chamado de Manutenção · '+PRIO[c.prioridade||'media']+'*\n\n'+
+    '*OS:* '+c.id+'\n'+
+    '*Ocorrência:* '+titulo+'\n'+
+    (c.equipamento?'*Equipamento:* '+c.equipamento+'\n':'')+
+    (c.patrimonio?'*Patrimônio:* '+c.patrimonio+'\n':'')+
+    (c.unidade?'*Setor:* '+c.unidade+'\n':'')+
+    (c.abertura?'*Abertura:* '+c.abertura+'\n':'')+
+    '\nToque no link para acessar seus chamados:\n'+linkTec
   );
-  window.open(`https://wa.me/55${fwNum(tec.whatsapp)}?text=${msg}`,'_blank');
+  window.open('https://wa.me/55'+fwNum(tec.whatsapp)+'?text='+msg,'_blank');
 }
 
 // ═══════════════════════════════════
@@ -796,6 +798,22 @@ load();
 renderLoginTecs();
 _snap=localStorage.getItem('maint_v5')||'';
 setInterval(verificarNovasOS,1000);
+
+// Login automático por URL — ?tec=ID
+(function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var tecId = params.get('tec');
+    if (tecId) {
+      var tec = tecnicos.find(function(t){ return t.id === decodeURIComponent(tecId); });
+      if (tec) {
+        currentRole = 'tecnico';
+        currentTecnico = tec;
+        montarApp();
+      }
+    }
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
