@@ -641,24 +641,27 @@ function openModal(tipo, id, fromLogin=false){
       <div class="detail-block">
         <div class="sec-label">Equipamento e localização</div>
         ${c.equipamento?`<div class="detail-row"><span class="dl">Equipamento</span><span class="dv">${c.equipamento}</span></div>`:''}
-        <div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade||'—'}</span></div>
-        ${c.nSerie?`<div class="detail-row"><span class="dl">Nº Série</span><span class="dv">${c.nSerie}</span></div>`:''}
+        ${c.patrimonio?`<div class="detail-row"><span class="dl">Patrimônio</span><span class="dv">${c.patrimonio}</span></div>`:''}
+        ${c.nSerie?`<div class="detail-row"><span class="dl">Nº de Série</span><span class="dv">${c.nSerie}</span></div>`:''}
+        ${c.unidade?`<div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade}</span></div>`:''}
         ${c.fabricante?`<div class="detail-row"><span class="dl">Fabricante</span><span class="dv">${c.fabricante}</span></div>`:''}
+        ${c.modelo?`<div class="detail-row"><span class="dl">Modelo</span><span class="dv">${c.modelo}</span></div>`:''}
       </div>
       <div class="detail-block">
         <div class="sec-label">Responsável e datas</div>
         <div class="detail-row"><span class="dl">Técnico</span><span class="dv">${c.nomeTecnico||'Não atribuído'}</span></div>
-        <div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>
-        ${c.atendimento?`<div class="detail-row"><span class="dl">Atendimento</span><span class="dv">${c.atendimento}</span></div>`:''}
-        <div class="detail-row"><span class="dl">Valor</span><span class="dv">${fmtValor(c.valor)}</span></div>
+        ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
+        ${c.atendimento?`<div class="detail-row"><span class="dl">Data atendimento</span><span class="dv">${c.atendimento}</span></div>`:''}
+        ${c.valor?`<div class="detail-row"><span class="dl">Valor</span><span class="dv">${fmtValor(c.valor)}</span></div>`:''}
         ${c.encerramento?`<div class="detail-row"><span class="dl">Encerrado em</span><span class="dv">${c.encerramento}</span></div>`:''}
       </div>
       <div class="detail-block">
         <div class="sec-label">Ocorrência</div>
         <p style="font-size:13px;line-height:1.6;color:var(--text2);">${c.descricao||c.titulo}</p>
-        ${c.obs?`<hr class="modal-sep"><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Encerramento:</strong> ${c.obs}</p>`:''}
+        ${c.solucao?`<hr class="modal-sep"><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Solução:</strong> ${c.solucao}</p>`:''}
+        ${c.obs?`<hr class="modal-sep"><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Observação técnico:</strong> ${c.obs}</p>`:''}
       </div>
-      ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec-label">Fotos</div><div class="photo-grid">${c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join('')}</div></div>`:''}
+      ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec-label">Fotos do serviço</div><div class="photo-grid">${c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join('')}</div></div>`:''}
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="closeModal()">Fechar</button>
         ${currentRole==='adm'&&c.status!=='encerrado'?`<button class="btn primary" onclick="openModal('atrib','${c.id}')">👷 Atribuir</button>`:''}
@@ -687,14 +690,28 @@ function openModal(tipo, id, fromLogin=false){
     const isEnc=c.status==='andamento';
     html+=`
       <div class="modal-header"><span class="modal-title">${isEnc?'Encerrar chamado':'Assumir chamado'}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
-      <div class="info-banner">📋 ${trunc(c.titulo,65)}<br><span style="font-size:11px;opacity:.8;">${c.id} · ${trunc(c.unidade,35)}</span></div>
+      <div class="info-banner">
+        <strong>${c.titulo}</strong><br>
+        <span style="font-size:11px;opacity:.8;">${c.id}${c.equipamento?' · '+c.equipamento:''}${c.unidade?' · '+c.unidade:''}</span>
+      </div>
+      <div class="detail-block" style="margin-bottom:14px;">
+        <div class="sec-label">Informações do chamado</div>
+        ${c.equipamento?`<div class="detail-row"><span class="dl">Equipamento</span><span class="dv">${c.equipamento}</span></div>`:''}
+        ${c.patrimonio?`<div class="detail-row"><span class="dl">Patrimônio</span><span class="dv">${c.patrimonio}</span></div>`:''}
+        ${c.nSerie?`<div class="detail-row"><span class="dl">Nº de Série</span><span class="dv">${c.nSerie}</span></div>`:''}
+        ${c.unidade?`<div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade}</span></div>`:''}
+        ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
+      </div>
       ${!isEnc?`<div class="field"><label>Data de atendimento</label><input id="f-atend" type="date" value="${new Date().toISOString().split('T')[0]}"/></div>`:''}
-      <div class="field"><label>Valor do serviço (R$)</label><input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${c.valor||''}"/><div class="field-hint">Informe o valor cobrado pelo serviço</div></div>
+      <div class="field"><label>Valor do serviço (R$)</label><input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${c.valor||''}"/></div>
       ${isEnc?`
-        <div class="field"><label>O que foi feito</label><textarea id="f-obs" placeholder="Descreva o serviço executado com detalhes..."></textarea></div>
+        <div class="field"><label>Solução aplicada</label><textarea id="f-solucao" placeholder="Descreva a solução aplicada...">${c.solucao||''}</textarea></div>
+        <div class="field"><label>Observações adicionais</label><textarea id="f-obs" placeholder="Observações extras se necessário..."></textarea></div>
         <div class="field">
-          <label>Fotos do serviço</label>
-          <div class="photo-grid" id="photo-preview"></div>
+          <label>Fotos do serviço executado</label>
+          <div class="photo-grid" id="photo-preview">
+            ${c.fotos&&c.fotos.length?c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join(''):''}
+          </div>
           <label style="cursor:pointer;display:inline-block;margin-top:8px;">
             <div class="photo-add-btn">📷<span>Adicionar foto</span></div>
             <input type="file" accept="image/*" multiple capture="environment" style="display:none;" onchange="addFotos(event)"/>
@@ -780,7 +797,10 @@ function salvarAtualizar(){
     if(aEl&&aEl.value) c.atendimento=fmtData(aEl.value);
     c.status='andamento';toast('✅ Chamado assumido!');
   } else {
-    c.obs=(document.getElementById('f-obs').value||'').trim();
+    const solEl=document.getElementById('f-solucao');
+    const obsEl=document.getElementById('f-obs');
+    if(solEl&&solEl.value.trim()) c.solucao=solEl.value.trim();
+    if(obsEl&&obsEl.value.trim()) c.obs=obsEl.value.trim();
     c.fotos=[...(c.fotos||[]),...tempFotos];
     c.encerramento=hoje();c.status='encerrado';toast('🔒 Chamado encerrado!');
   }
