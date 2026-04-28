@@ -64,7 +64,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
 /* ══════════════════════════════════════
    APP
 ══════════════════════════════════════ */
-#tela-app{display:none;max-width:480px;margin:0 auto;min-height:100vh;position:relative;}
+#tela-app{display:none;max-width:900px;margin:0 auto;min-height:100vh;position:relative;}
 
 /* Topbar */
 .topbar{
@@ -96,7 +96,11 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
 .tb-btn.sec{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
 
 /* Content */
-.content{padding:12px 12px 90px;}
+.content{padding:16px 16px 90px;}
+@media(min-width:700px){
+  .content{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+  .content .empty{grid-column:1/-1;}
+}
 
 /* ── CARDS ── */
 .card{
@@ -514,10 +518,12 @@ function render(){
             </div>
             <span class="badge ${c.status}">${STATUS_LABEL[c.status]}</span>
           </div>
-          <div class="card-title">${trunc(c.titulo,80)}</div>
+          <div class="card-title">${trunc(c.titulo&&c.titulo.toLowerCase().indexOf('no elements')===-1?c.titulo:('OS '+c.id),80)}</div>
           <div class="card-info">
             ${c.equipamento?`<div class="card-info-row"><span class="card-info-icon">🔧</span>${trunc(c.equipamento,45)}</div>`:''}
-            <div class="card-info-row"><span class="card-info-icon">📍</span>${trunc(c.unidade,45)}</div>
+            ${c.patrimonio?`<div class="card-info-row"><span class="card-info-icon">🏷️</span>Pat. ${trunc(c.patrimonio,20)}</div>`:''}
+            ${c.nSerie?`<div class="card-info-row"><span class="card-info-icon">🔢</span>S/N ${trunc(c.nSerie,20)}</div>`:''}
+            ${c.unidade?`<div class="card-info-row"><span class="card-info-icon">📍</span>${trunc(c.unidade,45)}</div>`:''}
             ${c.nomeTecnico?`<div class="card-info-row"><span class="card-info-icon">👷</span>${trunc(c.nomeTecnico,30)}</div>`:''}
           </div>
           <div class="card-chips">
@@ -636,7 +642,7 @@ function openModal(tipo, id, fromLogin=false){
           <span class="badge ${c.status}">${STATUS_LABEL[c.status]}</span>
           <span style="font-size:11px;color:var(--text3);">${PRIO_LABEL[prio]}</span>
         </div>
-        <div style="font-size:16px;font-weight:700;line-height:1.4;">${c.titulo}</div>
+        <div style="font-size:16px;font-weight:700;line-height:1.4;">${c.titulo&&c.titulo.toLowerCase().indexOf('no elements')===-1?c.titulo:('OS '+c.id)}</div>
       </div>
       <div class="detail-block">
         <div class="sec-label">Equipamento e localização</div>
