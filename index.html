@@ -197,19 +197,27 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
         <div class="login-brand-sub">Manutenção Industrial</div>
       </div>
     </div>
-    <div class="login-card">
-      <div class="login-sec-label">Analista</div>
-      <div class="login-row adm" onclick="entrarAdm()">
-        <div class="lr-av adm">⚙️</div>
-        <div class="lr-text"><div class="lr-name">Entrar como Analista</div><div class="lr-sub">Acesso completo ao sistema</div></div>
-        <div class="lr-arr">›</div>
+    <div class="login-card" id="login-card-main">
+      <div id="adm-section">
+        <div class="login-sec-label">Analista</div>
+        <div class="login-row adm" onclick="entrarAdm()">
+          <div class="lr-av adm">⚙️</div>
+          <div class="lr-text"><div class="lr-name">Entrar como Analista</div><div class="lr-sub">Acesso restrito · senha necessária</div></div>
+          <div class="lr-arr">›</div>
+        </div>
       </div>
-      <div class="login-sep"></div>
-      <div class="login-sec-label">Técnicos terceiros</div>
-      <div id="login-tec-list"></div>
-      <div class="login-row dashed" onclick="openModal('form-tec')">
-        <div class="lr-av add">+</div>
-        <div class="lr-text" style="color:var(--text3);"><div class="lr-name" style="font-weight:500;">Meu nome não aparece</div><div class="lr-sub">Solicite ao analista</div></div>
+    </div>
+    <!-- Card técnico — só aparece via link do WhatsApp -->
+    <div class="login-card" id="login-card-tec" style="display:none;margin-top:12px;">
+      <div class="login-sec-label">Técnico</div>
+      <div id="login-tec-info"></div>
+    </div>
+    <!-- Aviso para acesso direto sem link -->
+    <div id="login-card-aviso" style="display:none;margin-top:12px;">
+      <div class="login-card" style="text-align:center;padding:24px;">
+        <div style="font-size:36px;margin-bottom:12px;">🔗</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;">Acesso restrito</div>
+        <div style="font-size:13px;color:var(--text3);line-height:1.5;">Para acessar seus chamados, utilize o link enviado pelo WhatsApp pelo seu analista responsável.</div>
       </div>
     </div>
   </div>
@@ -297,7 +305,16 @@ function renderLoginTecs(){
     </div>`).join('');
 }
 
-function entrarAdm(){currentRole='adm';currentTecnico=null;montarApp();}
+function entrarAdm(){
+  var senha = prompt('Digite a senha de acesso:');
+  if(senha === null) return; // cancelou
+  // Senha padrão: manutencao2024 (pode mudar aqui)
+  if(senha !== 'manutencao2024'){
+    alert('Senha incorreta.');
+    return;
+  }
+  currentRole='adm';currentTecnico=null;montarApp();
+}
 function entrarTec(id){
   currentRole='tecnico';
   currentTecnico=tecnicos.find(t=>t.id===id);
@@ -467,6 +484,8 @@ function renderTecnicos(){
         <div class="tec-sub">${t.empresa?t.empresa+' · ':''}${t.whatsapp||'Sem telefone'} · ${ab} aberto${ab!==1?'s':''}</div>
       </div>
       <div class="tec-acts">
+        <button class="icon-btn" onclick="copiarLinkTec('${t.id}')" title="Copiar link do técnico">🔗</button>
+        <button class="icon-btn" onclick="enviarLinkWhats('${t.id}')" title="Enviar link pelo WhatsApp">📱</button>
         <button class="icon-btn" onclick="openModal('form-tec','${t.id}')">✏️</button>
         <button class="icon-btn" onclick="excluirTec('${t.id}')">🗑</button>
       </div>
@@ -727,6 +746,53 @@ function salvarTec(id){
   toast('✅ Técnico salvo!');
 }
 
+function getLinkTec(id) {
+  var base = window.location.href.split('?')[0].split('#')[0];
+  return base + '?tec=' + encodeURIComponent(id);
+}
+
+function copiarLinkTec(id) {
+  var tec = tecnicos.find(function(t){ return t.id === id; });
+  if (!tec) return;
+  var link = getLinkTec(id);
+  navigator.clipboard.writeText(link).then(function() {
+    toast('🔗 Link de ' + tec.nome.split(' ')[0] + ' copiado!');
+  }).catch(function() {
+    // Fallback para navegadores sem clipboard API
+    var ta = document.createElement('textarea');
+    ta.value = link;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('🔗 Link de ' + tec.nome.split(' ')[0] + ' copiado!');
+  });
+}
+
+function enviarLinkWhats(id) {
+  var tec = tecnicos.find(function(t){ return t.id === id; });
+  if (!tec) { toast('⚠️ Técnico não encontrado.'); return; }
+  if (!tec.whatsapp) { toast('⚠️ Técnico sem WhatsApp cadastrado.'); return; }
+  var link = getLinkTec(id);
+  var msg = encodeURIComponent(
+    'Olá ' + tec.nome.split(' ')[0] + '! 👋
+
+' +
+    'Aqui está seu link de acesso ao sistema de chamados de manutenção:
+
+' +
+    link + '
+
+' +
+    'Salve este link — ele abre direto nos seus chamados. ' +
+    'Você pode adicionar à tela inicial do celular para acesso rápido.'
+  );
+  var num = (tec.whatsapp || '').replace(/\D/g, '');
+  window.open('https://wa.me/55' + num + '?text=' + msg, '_blank');
+}
+
 function excluirTec(id){
   if(!confirm('Excluir este técnico?')) return;
   tecnicos=tecnicos.filter(t=>t.id!==id);
@@ -794,7 +860,7 @@ function verificarNovasOS(){
 // ═══════════════════════════════════
 migrar();
 load();
-renderLoginTecs();
+// Não renderiza lista de técnicos no login — acesso apenas por link do WhatsApp
 _snap=localStorage.getItem('maint_v5')||'';
 setInterval(verificarNovasOS,1000);
 
@@ -803,13 +869,24 @@ setInterval(verificarNovasOS,1000);
   try {
     var params = new URLSearchParams(window.location.search);
     var tecId = params.get('tec');
+
     if (tecId) {
+      // Veio via link do WhatsApp — tenta logar direto
       var tec = tecnicos.find(function(t){ return t.id === decodeURIComponent(tecId); });
       if (tec) {
+        // Login automático — vai direto para os chamados
         currentRole = 'tecnico';
         currentTecnico = tec;
         montarApp();
+      } else {
+        // ID não encontrado (técnico ainda não cadastrado ou link antigo)
+        document.getElementById('adm-section').style.display = 'none';
+        document.getElementById('login-card-aviso').style.display = 'block';
       }
+    } else {
+      // Acesso sem link de técnico — mostra APENAS o botão de Analista
+      // Técnicos só entram pelo link do WhatsApp
+      // Não mostra lista de técnicos para evitar acesso indevido
     }
   } catch(e) {}
 })();
