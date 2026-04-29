@@ -571,11 +571,10 @@ function openModal(tipo,id){
         ${c.valor?`<div class="detail-row"><span class="dl">Valor</span><span class="dv">${fmtValor(c.valor)}</span></div>`:''}
         ${c.encerramento?`<div class="detail-row"><span class="dl">Encerrado em</span><span class="dv">${c.encerramento}</span></div>`:''}
       </div>
-      ${(c.descricao&&tituloValido(c.descricao))||c.solucao||c.obs?`
+      ${c.solucao||c.obs?`
       <div class="detail-block">
         <div class="sec">Ocorrência e solução</div>
-        ${c.descricao&&tituloValido(c.descricao)?`<p style="font-size:13px;line-height:1.6;color:var(--text2);">${c.descricao}</p>`:''}
-        ${c.solucao?`<div class="modal-sep"></div><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Solução:</strong> ${c.solucao}</p>`:''}
+        ${c.solucao?`<p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Solução:</strong> ${c.solucao}</p>`:''}
         ${c.obs?`<div class="modal-sep"></div><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Observação:</strong> ${c.obs}</p>`:''}
       </div>`:''}
       ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec">Fotos</div><div class="photo-grid">${c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join('')}</div></div>`:''}
