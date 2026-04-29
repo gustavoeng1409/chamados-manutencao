@@ -306,14 +306,21 @@ function renderLoginTecs(){
 }
 
 function entrarAdm(){
-  var senha = prompt('Digite a senha de acesso:');
-  if(senha === null) return; // cancelou
-  // Senha padrão: manutencao2024 (pode mudar aqui)
-  if(senha !== 'manutencao2024'){
-    alert('Senha incorreta.');
-    return;
+  openModal('login-adm');
+}
+function confirmarSenhaAdm(){
+  var s = document.getElementById('f-senha-adm');
+  if(!s) return;
+  // Senha: manutencao2024 (altere aqui se quiser)
+  if(s.value === 'manutencao2024'){
+    closeModal();
+    currentRole='adm';currentTecnico=null;montarApp();
+  } else {
+    s.style.borderColor='#DC2626';
+    s.value='';
+    s.placeholder='Senha incorreta, tente novamente';
+    setTimeout(function(){ s.style.borderColor=''; s.placeholder='Digite a senha'; }, 2000);
   }
-  currentRole='adm';currentTecnico=null;montarApp();
 }
 function entrarTec(id){
   currentRole='tecnico';
@@ -532,8 +539,23 @@ function openModal(tipo,id){
   var body=document.getElementById('modal-body');
   var html=`<div class="modal-handle"></div>`;
 
+  // LOGIN ADM
+  if(tipo==='login-adm'){
+    html+=`
+      <div class="modal-handle"></div>
+      <div class="modal-header"><span class="modal-title">Acesso Analista</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div style="text-align:center;font-size:32px;margin-bottom:8px;">🔐</div>
+      <p style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:18px;">Digite a senha para acessar o painel do analista</p>
+      <div class="field">
+        <label>Senha</label>
+        <input id="f-senha-adm" type="password" placeholder="Digite a senha" autofocus
+          onkeydown="if(event.key==='Enter') confirmarSenhaAdm()"/>
+      </div>
+      <button class="btn primary" style="width:100%;padding:13px;font-size:14px;" onclick="confirmarSenhaAdm()">Entrar</button>`;
+  }
+
   // NOVO CHAMADO
-  if(tipo==='novo-chamado'){
+  else if(tipo==='novo-chamado'){
     var opsTec=tecnicos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
     html+=`
       <div class="modal-header"><span class="modal-title">Novo chamado</span><button class="close-btn" onclick="closeModal()">✕</button></div>
