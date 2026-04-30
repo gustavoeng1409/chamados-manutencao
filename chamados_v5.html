@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Chamados · Manutenção</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --or:#E05A1E;--or2:#C44D18;--or-bg:#FFF4EE;--or-border:#FDBA8C;
+  --bg:#F2F1ED;--card:#FFFFFF;--surface2:#F8F7F4;--border:#E4E2DC;--border2:#CCC9C2;
+  --text:#18171A;--text2:#5C5A58;--text3:#9B9895;
+  --green:#0D7D4D;--green-bg:#ECFDF5;--green-bd:#86EFAC;
+  --blue:#1D4ED8;--blue-bg:#EFF6FF;--blue-bd:#93C5FD;
+  --amber:#92400E;--amber-bg:#FFFBEB;--amber-bd:#FDE68A;
+  --red:#B91C1C;
+  --r:14px;--rsm:10px;--rxs:8px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'Courier New',monospace;
+  --sh:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shmd:0 4px 12px rgba(0,0,0,.08);
+}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:var(--text);}
+
+/* LOGIN */
+#pg-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;position:relative;z-index:1;}
+.login-wrap{width:100%;max-width:380px;}
+.login-brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center;}
+.login-icon{width:44px;height:44px;background:var(--or);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.login-brand-name{font-size:18px;font-weight:700;}
+.login-brand-sub{font-size:12px;color:var(--text3);margin-top:1px;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;box-shadow:var(--shmd);}
+.login-sec-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;}
+.login-sep{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.login-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--surface2);cursor:pointer;margin-bottom:8px;transition:border-color .15s,background .1s;}
+.login-row:last-child{margin-bottom:0;}
+.login-row:hover{border-color:var(--border2);background:#EEECEA;}
+.login-row:active{transform:scale(.99);}
+.login-row.adm{background:var(--or);border-color:var(--or);color:white;}
+.login-row.adm:hover{background:var(--or2);}
+.login-row.dashed{border-style:dashed;background:transparent;}
+.lr-av{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;}
+.lr-av.adm{background:rgba(255,255,255,.2);color:white;font-size:18px;}
+.lr-av.tec{background:var(--or-bg);color:var(--or);}
+.lr-av.add{background:var(--bg);color:var(--text3);font-size:20px;}
+.lr-text{flex:1;}
+.lr-name{font-size:14px;font-weight:600;}
+.lr-sub{font-size:11px;opacity:.7;margin-top:1px;}
+.lr-arr{font-size:14px;opacity:.35;}
+
+/* APP */
+#pg-app{display:none;max-width:960px;margin:0 auto;min-height:100vh;}
+
+/* TOPBAR */
+.topbar{background:var(--or);color:white;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-av{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.tb-role{font-size:10px;opacity:.75;font-weight:600;letter-spacing:.05em;text-transform:uppercase;line-height:1;}
+.tb-name{font-size:15px;font-weight:700;line-height:1.3;}
+.tb-right{display:flex;align-items:center;gap:8px;}
+.tb-pill{background:rgba(255,255,255,.2);padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;}
+.tb-exit{background:rgba(255,255,255,.15);border:none;color:white;padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:var(--font);font-weight:500;}
+
+/* STATS */
+.stat-bar{display:flex;background:var(--card);border-bottom:1px solid var(--border);}
+.stat{flex:1;padding:10px 0;text-align:center;}
+.stat+.stat{border-left:1px solid var(--border);}
+.stat-num{font-size:22px;font-weight:700;line-height:1;}
+.stat-num.or{color:var(--or);}
+.stat-num.bl{color:var(--blue);}
+.stat-num.gr{color:var(--green);}
+.stat-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+
+/* TABS */
+.tabs{background:var(--card);display:flex;border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:40;overflow-x:auto;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex:1;padding:11px 6px;text-align:center;font-size:12px;font-weight:500;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;white-space:nowrap;min-width:72px;}
+.tab.active{color:var(--or);border-bottom-color:var(--or);font-weight:700;}
+
+/* TOOLBAR */
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;}
+.toolbar input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);color:var(--text);}
+.toolbar input:focus{outline:none;border-color:var(--or-border);}
+
+/* CONTENT */
+.content{padding:14px 16px 90px;}
+@media(min-width:640px){
+  .content{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+  .content .empty,.content .full-width{grid-column:1/-1;}
+}
+@media(min-width:900px){
+  .content{grid-template-columns:1fr 1fr 1fr;}
+}
+
+/* CARDS */
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;box-shadow:var(--sh);}
+.card-stripe{height:4px;}
+.card-stripe.aberto{background:var(--amber-bd);}
+.card-stripe.andamento{background:var(--blue-bd);}
+.card-stripe.encerrado{background:var(--green-bd);}
+.card-body{padding:13px 14px;}
+.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.card-os{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:600;}
+.badge{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:700;}
+.badge.aberto{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
+.badge.andamento{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);}
+.badge.encerrado{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+.prio-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:5px;}
+.prio-dot.alta{background:#EF4444;}
+.prio-dot.media{background:#F59E0B;}
+.prio-dot.baixa{background:#10B981;}
+.card-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.35;margin-bottom:10px;}
+
+/* Campos do card */
+.card-fields{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.card-field{display:flex;gap:6px;font-size:12px;color:var(--text2);align-items:baseline;}
+.cf-label{color:var(--text3);font-weight:600;white-space:nowrap;min-width:72px;font-size:11px;}
+.cf-value{color:var(--text);font-weight:500;word-break:break-word;}
+
+.card-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.chip{font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-weight:500;}
+.chip.warn{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd);}
+.chip.money{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+
+.card-footer{display:flex;gap:6px;border-top:1px solid var(--border);padding-top:10px;}
+.btn{flex:1;padding:8px 6px;border-radius:var(--rxs);border:1px solid var(--border);background:transparent;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);font-family:var(--font);}
+.btn:hover{background:var(--surface2);}
+.btn.primary{background:var(--or);color:white;border-color:var(--or);}
+.btn.primary:hover{background:var(--or2);}
+.btn.success{background:var(--green);color:white;border-color:var(--green);}
+.btn.whats{background:#25D366;color:white;border-color:#25D366;}
+.btn.ghost{background:transparent;color:var(--text3);}
+.btn:active{opacity:.75;}
+
+/* FAB */
+.fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:var(--or);color:white;font-size:22px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(224,90,30,.45);z-index:30;}
+.fab:hover{background:var(--or2);}
+
+/* EMPTY */
+.empty{text-align:center;padding:52px 20px;}
+.empty-icon{font-size:44px;margin-bottom:12px;}
+.empty h3{font-size:15px;font-weight:700;color:var(--text2);margin-bottom:5px;}
+.empty p{font-size:13px;color:var(--text3);line-height:1.5;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:9999;}
+@media(min-width:640px){.modal-overlay{align-items:center;}}
+.modal{background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;}
+@media(min-width:640px){.modal{border-radius:20px;}}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;}
+@media(min-width:640px){.modal-handle{display:none;}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.modal-title{font-size:16px;font-weight:700;}
+.close-btn{width:30px;height:30px;border-radius:50%;background:var(--surface2);border:none;cursor:pointer;font-size:16px;color:var(--text3);display:flex;align-items:center;justify-content:center;}
+.field{margin-bottom:13px;}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;}
+.field input,.field textarea,.field select{width:100%;padding:11px 13px;border-radius:var(--rsm);border:1px solid var(--border);background:var(--surface2);font-size:14px;color:var(--text);font-family:var(--font);-webkit-appearance:none;}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--or-border);background:white;}
+.field textarea{min-height:78px;resize:vertical;line-height:1.5;}
+.field-hint{font-size:11px;color:var(--text3);margin-top:4px;}
+.info-box{background:var(--or-bg);border:1px solid var(--or-border);border-radius:var(--rxs);padding:10px 13px;margin-bottom:14px;font-size:13px;color:var(--or2);line-height:1.5;}
+.detail-block{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rsm);padding:13px;margin-bottom:12px;}
+.detail-block .sec{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.detail-row:last-child{border-bottom:none;padding-bottom:0;}
+.dl{color:var(--text3);flex-shrink:0;padding-right:10px;font-size:12px;font-weight:500;}
+.dv{font-weight:600;color:var(--text);text-align:right;max-width:65%;word-break:break-word;}
+.photo-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+.photo-thumb{width:72px;height:72px;border-radius:var(--rxs);object-fit:cover;border:1px solid var(--border);cursor:pointer;}
+.photo-add{width:72px;height:72px;border-radius:var(--rxs);border:2px dashed var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;color:var(--text3);cursor:pointer;background:var(--surface2);}
+.photo-add span{font-size:9px;font-weight:600;margin-top:2px;}
+.prio-row{display:flex;gap:8px;}
+.prio-opt{flex:1;padding:9px 4px;border-radius:var(--rxs);border:1px solid var(--border);background:var(--surface2);font-size:12px;font-weight:600;cursor:pointer;text-align:center;color:var(--text2);}
+.prio-opt.sel.alta{background:#FEE2E2;color:var(--red);border-color:#FCA5A5;}
+.prio-opt.sel.media{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd);}
+.prio-opt.sel.baixa{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+.tec-card{background:var(--card);border:1px solid var(--border);border-radius:var(--rsm);padding:13px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.tec-av{width:40px;height:40px;border-radius:50%;background:var(--or-bg);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--or);flex-shrink:0;}
+.tec-info{flex:1;}
+.tec-name{font-size:14px;font-weight:600;}
+.tec-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.tec-acts{display:flex;gap:5px;}
+.icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.modal-sep{border:none;border-top:1px solid var(--border);margin:14px 0;}
+.toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:400;white-space:nowrap;max-width:94vw;text-align:center;box-shadow:var(--shmd);pointer-events:none;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="pg-login">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-icon">🔧</div>
+      <div>
+        <div class="login-brand-name">Chamados</div>
+        <div class="login-brand-sub">Manutenção Industrial</div>
+      </div>
+    </div>
+    <div class="login-card" id="login-card-main">
+      <div id="adm-section">
+        <div class="login-sec-label">Analista</div>
+        <div class="login-row adm" onclick="entrarAdm()">
+          <div class="lr-av adm">⚙️</div>
+          <div class="lr-text"><div class="lr-name">Entrar como Analista</div><div class="lr-sub">Acesso restrito · senha necessária</div></div>
+          <div class="lr-arr">›</div>
+        </div>
+      </div>
+    </div>
+    <!-- Card técnico — só aparece via link do WhatsApp -->
+    <div class="login-card" id="login-card-tec" style="display:none;margin-top:12px;">
+      <div class="login-sec-label">Técnico</div>
+      <div id="login-tec-info"></div>
+    </div>
+    <!-- Aviso para acesso direto sem link -->
+    <div id="login-card-aviso" style="display:none;margin-top:12px;">
+      <div class="login-card" style="text-align:center;padding:24px;">
+        <div style="font-size:36px;margin-bottom:12px;">🔗</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;">Acesso restrito</div>
+        <div style="font-size:13px;color:var(--text3);line-height:1.5;">Para acessar seus chamados, utilize o link enviado pelo WhatsApp pelo seu analista responsável.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="pg-app">
+  <div class="topbar">
+    <div class="tb-left">
+      <div class="tb-av" id="tb-av">A</div>
+      <div><div class="tb-role" id="tb-role">Analista</div><div class="tb-name" id="tb-name">Chamados</div></div>
+    </div>
+    <div class="tb-right">
+      <span class="tb-pill" id="counter">0</span>
+      <button class="tb-exit" onclick="sair()">Sair</button>
+    </div>
+  </div>
+  <div id="stat-bar-wrap"></div>
+  <div class="tabs" id="tabs-bar"></div>
+  <div class="toolbar" id="toolbar-bar"></div>
+  <div class="content" id="list-content"></div>
+  <button class="fab" id="fab-btn" style="display:none;" onclick="openModal('novo-chamado')">+</button>
+</div>
+
+<div id="modal-overlay" class="modal-overlay" style="display:none;" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal-body"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════
+var chamados=[], tecnicos=[], nextId=1;
+var currentTab='todos', currentRole=null, currentTecnico=null;
+var editTarget=null, tempFotos=[], prioSel='media';
+var _snap='';
+
+// ═══════════════════════════════════
+// PERSISTÊNCIA
+// ═══════════════════════════════════
+function save(){try{localStorage.setItem('maint_v5',JSON.stringify({chamados,tecnicos,nextId}));}catch(e){}}
+function load(){try{var r=localStorage.getItem('maint_v5');if(r){var d=JSON.parse(r);chamados=d.chamados||[];tecnicos=d.tecnicos||[];nextId=d.nextId||1;}}catch(e){}}
+
+// Migração da chave antiga
+function migrar(){
+  try{
+    var old=localStorage.getItem('maint_v4');
+    if(old&&!localStorage.getItem('maint_v5')){
+      localStorage.setItem('maint_v5',old);
+      localStorage.removeItem('maint_v4');
+    }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════
+// UTILS
+// ═══════════════════════════════════
+var pad=n=>String(n).padStart(2,'0');
+var hoje=()=>{var d=new Date();return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();};
+var fmtData=iso=>{if(!iso)return'';var d=new Date(iso+'T12:00:00');return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();};
+var fmtValor=v=>v?'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+var trunc=(s,n)=>s&&s.length>n?s.slice(0,n)+'…':(s||'');
+var iniciais=n=>(n||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
+var fwNum=t=>(t||'').replace(/\D/g,'');
+var tituloValido=t=>t&&t.toLowerCase().indexOf('no elements')===-1&&t.toLowerCase().indexOf('consider changing')===-1;
+
+var PRIO={alta:'🔴 Alta',media:'🟡 Média',baixa:'🟢 Baixa'};
+var STATUS={aberto:'Aberto',andamento:'Em andamento',encerrado:'Encerrado'};
+
+function toast(msg,dur=3000){
+  var el=document.createElement('div');el.className='toast';el.textContent=msg;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),dur);
+}
+
+// ═══════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════
+function renderLoginTecs(){
+  var el=document.getElementById('login-tec-list');
+  if(!el) return; // elemento não existe nesta versão
+}
+
+function entrarAdm(){
+  openModal('login-adm');
+}
+function confirmarSenhaAdm(){
+  var s = document.getElementById('f-senha-adm');
+  if(!s) return;
+  // Senha: manutencao2024 (altere aqui se quiser)
+  if(s.value === 'manutencao2024'){
+    closeModal();
+    currentRole='adm';currentTecnico=null;montarApp();
+  } else {
+    s.style.borderColor='#DC2626';
+    s.value='';
+    s.placeholder='Senha incorreta, tente novamente';
+    setTimeout(function(){ s.style.borderColor=''; s.placeholder='Digite a senha'; }, 2000);
+  }
+}
+function entrarTec(id){
+  currentRole='tecnico';
+  currentTecnico=tecnicos.find(t=>t.id===id);
+  if(!currentTecnico){toast('Técnico não encontrado.');return;}
+  montarApp();
+}
+function sair(){
+  currentRole=null;currentTecnico=null;currentTab='todos';
+  document.getElementById('pg-login').style.display='flex';
+  document.getElementById('pg-app').style.display='none';
+  renderLoginTecs();
+}
+
+// ═══════════════════════════════════
+// MONTAR APP
+// ═══════════════════════════════════
+function montarApp(){
+  document.getElementById('pg-login').style.display='none';
+  document.getElementById('pg-app').style.display='block';
+
+  if(currentRole==='adm'){
+    document.getElementById('tb-av').textContent='A';
+    document.getElementById('tb-role').textContent='Analista · Acesso completo';
+    document.getElementById('tb-name').textContent='Chamados';
+    document.getElementById('fab-btn').style.display='flex';
+    document.getElementById('stat-bar-wrap').innerHTML='<div class="stat-bar" id="stat-bar"></div>';
+    document.getElementById('tabs-bar').innerHTML=`
+      <div class="tab active" onclick="setTab(this,'todos')">Todos</div>
+      <div class="tab" onclick="setTab(this,'aberto')">Abertos</div>
+      <div class="tab" onclick="setTab(this,'andamento')">Andamento</div>
+      <div class="tab" onclick="setTab(this,'encerrado')">Encerrados</div>
+      <div class="tab" onclick="setTab(this,'tecnicos')">Técnicos</div>`;
+    document.getElementById('toolbar-bar').innerHTML=`
+      <input id="search-input" placeholder="🔍  OS, equipamento, setor..." oninput="render()"/>`;
+    currentTab='todos';
+  } else {
+    document.getElementById('tb-av').textContent=iniciais(currentTecnico.nome);
+    document.getElementById('tb-role').textContent='Técnico';
+    document.getElementById('tb-name').textContent=currentTecnico.nome.split(' ')[0];
+    document.getElementById('fab-btn').style.display='none';
+    document.getElementById('stat-bar-wrap').innerHTML='';
+    document.getElementById('tabs-bar').innerHTML=`
+      <div class="tab active" onclick="setTab(this,'meus')">Meus chamados</div>
+      <div class="tab" onclick="setTab(this,'and-tec')">Em andamento</div>
+      <div class="tab" onclick="setTab(this,'enc-tec')">Encerrados</div>`;
+    document.getElementById('toolbar-bar').innerHTML=`
+      <input id="search-input" placeholder="🔍  Buscar chamado..." oninput="render()"/>`;
+    currentTab='meus';
+  }
+  render();
+}
+
+function setTab(el,t){
+  currentTab=t;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function getList(){
+  var q=((document.getElementById('search-input')||{}).value||'').toLowerCase();
+  var list=[...chamados];
+  if(currentRole==='tecnico'){
+    list=list.filter(c=>c.tecnicoId===currentTecnico.id);
+    if(currentTab==='and-tec') list=list.filter(c=>c.status==='andamento');
+    else if(currentTab==='enc-tec') list=list.filter(c=>c.status==='encerrado');
+  } else {
+    if(currentTab==='aberto') list=list.filter(c=>c.status==='aberto');
+    else if(currentTab==='andamento') list=list.filter(c=>c.status==='andamento');
+    else if(currentTab==='encerrado') list=list.filter(c=>c.status==='encerrado');
+  }
+  if(q) list=list.filter(c=>
+    (c.id||'').toLowerCase().includes(q)||
+    (c.titulo||'').toLowerCase().includes(q)||
+    (c.unidade||'').toLowerCase().includes(q)||
+    (c.equipamento||'').toLowerCase().includes(q)||
+    (c.nomeTecnico||'').toLowerCase().includes(q)||
+    (c.patrimonio||'').toLowerCase().includes(q)
+  );
+  // Alta prioridade primeiro
+  var po={alta:0,media:1,baixa:2};
+  list.sort((a,b)=>(po[a.prioridade||'media']||1)-(po[b.prioridade||'media']||1));
+  return list;
+}
+
+// ═══════════════════════════════════
+// RENDER
+// ═══════════════════════════════════
+function render(){
+  if(currentTab==='tecnicos'){renderTecnicos();return;}
+
+  // Stats bar
+  var sb=document.getElementById('stat-bar');
+  if(sb){
+    sb.innerHTML=`
+      <div class="stat"><div class="stat-num or">${chamados.filter(c=>c.status==='aberto').length}</div><div class="stat-label">Abertos</div></div>
+      <div class="stat"><div class="stat-num bl">${chamados.filter(c=>c.status==='andamento').length}</div><div class="stat-label">Andamento</div></div>
+      <div class="stat"><div class="stat-num gr">${chamados.filter(c=>c.status==='encerrado').length}</div><div class="stat-label">Encerrados</div></div>`;
+  }
+
+  var ab=chamados.filter(c=>c.status!=='encerrado').length;
+  document.getElementById('counter').textContent=ab;
+
+  var list=getList();
+  var el=document.getElementById('list-content');
+  if(!list.length){
+    el.innerHTML=`<div class="empty">
+      <div class="empty-icon">📋</div>
+      <h3>${chamados.length===0?'Nenhum chamado ainda':'Nenhum resultado'}</h3>
+      <p>${currentRole==='adm'&&chamados.length===0?'Abra uma OS no Effort e clique em "📤 Enviar OS", ou crie manualmente.':currentRole==='tecnico'?'Nenhum chamado atribuído a você ainda.':'Tente outro filtro.'}</p>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML=list.map(c=>{
+    var prio=c.prioridade||'media';
+    var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
+    var isAdm=currentRole==='adm';
+    var isTec=currentRole==='tecnico';
+    return `<div class="card">
+      <div class="card-stripe ${c.status}"></div>
+      <div class="card-body">
+        <div class="card-top">
+          <span class="card-os"><span class="prio-dot ${prio}"></span>${c.id}</span>
+          <span class="badge ${c.status}">${STATUS[c.status]}</span>
+        </div>
+        <div class="card-title">${trunc(titulo,90)}</div>
+        <div class="card-fields">
+          ${c.equipamento?`<div class="card-field"><span class="cf-label">Equipamento</span><span class="cf-value">${trunc(c.equipamento,50)}</span></div>`:''}
+          ${c.patrimonio?`<div class="card-field"><span class="cf-label">Patrimônio</span><span class="cf-value">${c.patrimonio}</span></div>`:''}
+          ${c.nSerie?`<div class="card-field"><span class="cf-label">Nº de Série</span><span class="cf-value">${c.nSerie}</span></div>`:''}
+          ${c.unidade?`<div class="card-field"><span class="cf-label">Setor</span><span class="cf-value">${trunc(c.unidade,50)}</span></div>`:''}
+          ${c.nomeTecnico?`<div class="card-field"><span class="cf-label">Técnico</span><span class="cf-value">${trunc(c.nomeTecnico,30)}</span></div>`:''}
+          ${c.atendimento?`<div class="card-field"><span class="cf-label">Atendimento</span><span class="cf-value">${c.atendimento}</span></div>`:''}
+        </div>
+        <div class="card-chips">
+          ${c.abertura?`<span class="chip">📅 ${c.abertura}</span>`:''}
+          ${!c.nomeTecnico&&isAdm?`<span class="chip warn">Sem técnico</span>`:''}
+          ${c.valor?`<span class="chip money">💰 ${fmtValor(c.valor)}</span>`:''}
+          ${c.prioridade&&c.prioridade!=='media'?`<span class="chip">${PRIO[c.prioridade]}</span>`:''}
+        </div>
+        <div class="card-footer">
+          <button class="btn" onclick="openModal('ver','${c.id}')">Ver detalhes</button>
+          ${isAdm&&c.status!=='encerrado'?`<button class="btn ghost" onclick="openModal('atrib','${c.id}')" title="Atribuir técnico">👷</button>`:''}
+          ${isAdm&&c.nomeTecnico&&c.status!=='encerrado'?`<button class="btn whats" onclick="enviarWhats('${c.id}')">WhatsApp</button>`:''}
+          ${isTec&&c.status!=='encerrado'?`<button class="btn ${c.status==='aberto'?'primary':'success'}" onclick="openModal('atualizar','${c.id}')">${c.status==='aberto'?'✅ Assumir':'🔒 Encerrar'}</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════
+// TÉCNICOS
+// ═══════════════════════════════════
+function renderTecnicos(){
+  document.getElementById('counter').textContent=tecnicos.length;
+  var sb=document.getElementById('stat-bar');
+  if(sb) sb.innerHTML='';
+  var el=document.getElementById('list-content');
+  var html=tecnicos.length?tecnicos.map(t=>{
+    var ab=chamados.filter(c=>c.tecnicoId===t.id&&c.status!=='encerrado').length;
+    return `<div class="tec-card full-width">
+      <div class="tec-av">${iniciais(t.nome)}</div>
+      <div class="tec-info">
+        <div class="tec-name">${t.nome}</div>
+        <div class="tec-sub">${t.empresa?t.empresa+' · ':''}${t.whatsapp||'Sem telefone'} · ${ab} aberto${ab!==1?'s':''}</div>
+      </div>
+      <div class="tec-acts">
+        <button class="icon-btn" onclick="copiarLinkTec('${t.id}')" title="Copiar link do técnico">🔗</button>
+        <button class="icon-btn" onclick="enviarLinkWhats('${t.id}')" title="Enviar link pelo WhatsApp">📱</button>
+        <button class="icon-btn" onclick="openModal('form-tec','${t.id}')">✏️</button>
+        <button class="icon-btn" onclick="excluirTec('${t.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty full-width"><div class="empty-icon">👷</div><h3>Nenhum técnico</h3><p>Cadastre os técnicos terceiros para atribuir chamados.</p></div>';
+  html+=`<button class="btn primary full-width" style="padding:13px;font-size:14px;margin-top:6px;display:block;width:100%;" onclick="openModal('form-tec')">+ Cadastrar técnico</button>`;
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════
+// WHATSAPP
+// ═══════════════════════════════════
+function enviarWhats(id){
+  var c=chamados.find(x=>x.id===id);
+  if(!c||!c.tecnicoId){toast('⚠️ Atribua um técnico primeiro.');return;}
+  var tec=tecnicos.find(t=>t.id===c.tecnicoId);
+  if(!tec||!tec.whatsapp){toast('⚠️ Técnico sem WhatsApp.');return;}
+  var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
+  // Link direto com ID do técnico — ao clicar ele já entra nos seus chamados
+  var base=window.location.href.split('?')[0].split('#')[0];
+  var linkTec=base+'?tec='+encodeURIComponent(tec.id);
+  var msg=encodeURIComponent(
+    '🔧 *Chamado de Manutenção · '+PRIO[c.prioridade||'media']+'*\n\n'+
+    '*OS:* '+c.id+'\n'+
+    '*Ocorrência:* '+titulo+'\n'+
+    (c.equipamento?'*Equipamento:* '+c.equipamento+'\n':'')+
+    (c.patrimonio?'*Patrimônio:* '+c.patrimonio+'\n':'')+
+    (c.unidade?'*Setor:* '+c.unidade+'\n':'')+
+    (c.abertura?'*Abertura:* '+c.abertura+'\n':'')+
+    '\nToque no link para acessar seus chamados:\n'+linkTec
+  );
+  window.open('https://wa.me/55'+fwNum(tec.whatsapp)+'?text='+msg,'_blank');
+}
+
+// ═══════════════════════════════════
+// MODAIS
+// ═══════════════════════════════════
+function openModal(tipo,id){
+  editTarget=id?(chamados.find(c=>c.id===id)||tecnicos.find(t=>t.id===id)):null;
+  tempFotos=[];
+  if(tipo==='novo-chamado') prioSel='media';
+  else if(editTarget&&editTarget.prioridade) prioSel=editTarget.prioridade;
+
+  var body=document.getElementById('modal-body');
+  var html=`<div class="modal-handle"></div>`;
+
+  // LOGIN ADM
+  if(tipo==='login-adm'){
+    html+=`
+      <div class="modal-handle"></div>
+      <div class="modal-header"><span class="modal-title">Acesso Analista</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div style="text-align:center;font-size:32px;margin-bottom:8px;">🔐</div>
+      <p style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:18px;">Digite a senha para acessar o painel do analista</p>
+      <div class="field">
+        <label>Senha</label>
+        <input id="f-senha-adm" type="password" placeholder="Digite a senha" autofocus
+          onkeydown="if(event.key==='Enter') confirmarSenhaAdm()"/>
+      </div>
+      <button class="btn primary" style="width:100%;padding:13px;font-size:14px;" onclick="confirmarSenhaAdm()">Entrar</button>`;
+  }
+
+  // NOVO CHAMADO
+  else if(tipo==='novo-chamado'){
+    var opsTec=tecnicos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
+    html+=`
+      <div class="modal-header"><span class="modal-title">Novo chamado</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="field"><label>Ocorrência *</label><input id="f-titulo" placeholder="Descreva o problema"/></div>
+      <div class="field"><label>Equipamento</label><input id="f-equip" placeholder="Nome ou código"/></div>
+      <div class="field"><label>Patrimônio</label><input id="f-pat" placeholder="Número de patrimônio"/></div>
+      <div class="field"><label>Nº de Série</label><input id="f-serie" placeholder="Número de série"/></div>
+      <div class="field"><label>Setor / Unidade</label><input id="f-unidade" placeholder="Ex: AT HOSP UNIMED FAROL"/></div>
+      <div class="field"><label>Técnico responsável</label><select id="f-tecnico"><option value="">— Sem atribuição —</option>${opsTec}</select></div>
+      <div class="field"><label>Prioridade</label>
+        <div class="prio-row">
+          <div class="prio-opt sel media" onclick="selPrio(this,'alta')">🔴 Alta</div>
+          <div class="prio-opt sel media" onclick="selPrio(this,'media')">🟡 Média</div>
+          <div class="prio-opt sel media" onclick="selPrio(this,'baixa')">🟢 Baixa</div>
+        </div>
+      </div>
+      <div class="field"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes adicionais..."></textarea></div>
+      <button class="btn primary" style="width:100%;padding:13px;font-size:14px;" onclick="salvarNovo()">Abrir chamado</button>`;
+  }
+
+  // VER DETALHES
+  else if(tipo==='ver'){
+    var c=editTarget;
+    var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
+    var isAdm=currentRole==='adm';
+    var isTec=currentRole==='tecnico';
+    html+=`
+      <div class="modal-header">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">${c.id}</span>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+          <span class="prio-dot ${c.prioridade||'media'}"></span>
+          <span class="badge ${c.status}">${STATUS[c.status]}</span>
+          <span style="font-size:11px;color:var(--text3);">${PRIO[c.prioridade||'media']}</span>
+        </div>
+        <div style="font-size:16px;font-weight:700;line-height:1.4;">${titulo}</div>
+      </div>
+      <div class="detail-block">
+        <div class="sec">Equipamento e localização</div>
+        ${c.equipamento?`<div class="detail-row"><span class="dl">Equipamento</span><span class="dv">${c.equipamento}</span></div>`:''}
+        ${c.patrimonio?`<div class="detail-row"><span class="dl">Patrimônio</span><span class="dv">${c.patrimonio}</span></div>`:''}
+        ${c.nSerie?`<div class="detail-row"><span class="dl">Nº de Série</span><span class="dv">${c.nSerie}</span></div>`:''}
+        ${c.unidade?`<div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade}</span></div>`:''}
+        ${c.fabricante?`<div class="detail-row"><span class="dl">Fabricante</span><span class="dv">${c.fabricante}</span></div>`:''}
+        ${c.modelo?`<div class="detail-row"><span class="dl">Modelo</span><span class="dv">${c.modelo}</span></div>`:''}
+      </div>
+      <div class="detail-block">
+        <div class="sec">Responsável e datas</div>
+        <div class="detail-row"><span class="dl">Técnico</span><span class="dv">${c.nomeTecnico||'Não atribuído'}</span></div>
+        ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
+        ${c.atendimento?`<div class="detail-row"><span class="dl">Atendimento</span><span class="dv">${c.atendimento}</span></div>`:''}
+        ${c.valor?`<div class="detail-row"><span class="dl">Valor</span><span class="dv">${fmtValor(c.valor)}</span></div>`:''}
+        ${c.encerramento?`<div class="detail-row"><span class="dl">Encerrado em</span><span class="dv">${c.encerramento}</span></div>`:''}
+      </div>
+      ${c.solucao||c.obs?`
+      <div class="detail-block">
+        <div class="sec">Ocorrência e solução</div>
+        ${c.solucao?`<p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Solução:</strong> ${c.solucao}</p>`:''}
+        ${c.obs?`<div class="modal-sep"></div><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Observação:</strong> ${c.obs}</p>`:''}
+      </div>`:''}
+      ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec">Fotos</div><div class="photo-grid">${c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join('')}</div></div>`:''}
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="closeModal()">Fechar</button>
+        ${isAdm&&c.status!=='encerrado'?`<button class="btn primary" onclick="openModal('atrib','${c.id}')">👷 Atribuir</button>`:''}
+        ${isAdm&&c.nomeTecnico&&c.status!=='encerrado'?`<button class="btn whats" onclick="enviarWhats('${c.id}')">WhatsApp</button>`:''}
+        ${isTec&&c.status!=='encerrado'?`<button class="btn ${c.status==='aberto'?'primary':'success'}" onclick="openModal('atualizar','${c.id}')">${c.status==='aberto'?'Assumir':'Encerrar'}</button>`:''}
+      </div>`;
+  }
+
+  // ATRIBUIR TÉCNICO
+  else if(tipo==='atrib'){
+    var c=editTarget;
+    var opsTec=tecnicos.map(t=>`<option value="${t.id}" ${c.tecnicoId===t.id?'selected':''}>${t.nome}</option>`).join('');
+    html+=`
+      <div class="modal-header"><span class="modal-title">Atribuir técnico</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="info-box">${trunc(tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS),65)}<br><span style="font-size:11px;opacity:.8;">${c.id}${c.unidade?' · '+c.unidade:''}</span></div>
+      <div class="field"><label>Técnico responsável</label><select id="f-atrib-tec"><option value="">— Sem atribuição —</option>${opsTec}</select></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="closeModal()">Cancelar</button>
+        <button class="btn primary" onclick="salvarAtrib()">Confirmar</button>
+      </div>`;
+  }
+
+  // ATUALIZAR — TÉCNICO
+  else if(tipo==='atualizar'){
+    var c=editTarget;
+    var isEnc=c.status==='andamento';
+    var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
+    html+=`
+      <div class="modal-header"><span class="modal-title">${isEnc?'Encerrar chamado':'Assumir chamado'}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="info-box"><strong>${trunc(titulo,80)}</strong><br><span style="font-size:11px;opacity:.8;">${c.id}</span></div>
+      <div class="detail-block" style="margin-bottom:14px;">
+        <div class="sec">Informações do equipamento</div>
+        ${c.equipamento?`<div class="detail-row"><span class="dl">Equipamento</span><span class="dv">${c.equipamento}</span></div>`:''}
+        ${c.patrimonio?`<div class="detail-row"><span class="dl">Patrimônio</span><span class="dv">${c.patrimonio}</span></div>`:''}
+        ${c.nSerie?`<div class="detail-row"><span class="dl">Nº de Série</span><span class="dv">${c.nSerie}</span></div>`:''}
+        ${c.unidade?`<div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade}</span></div>`:''}
+        ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
+      </div>
+      ${!isEnc?`<div class="field"><label>Data de atendimento</label><input id="f-atend" type="date" value="${new Date().toISOString().split('T')[0]}"/></div>`:''}
+      <div class="field"><label>Valor do serviço (R$)</label><input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${c.valor||''}"/></div>
+      ${isEnc?`
+        <div class="field"><label>Solução aplicada</label><textarea id="f-solucao" placeholder="Descreva a solução aplicada...">${c.solucao||''}</textarea></div>
+        <div class="field"><label>Observações adicionais</label><textarea id="f-obs" placeholder="Informações extras...">${c.obs||''}</textarea></div>
+        <div class="field">
+          <label>Fotos do serviço</label>
+          <div class="photo-grid" id="photo-preview">${c.fotos&&c.fotos.length?c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join(''):''}</div>
+          <label style="cursor:pointer;display:inline-block;margin-top:8px;">
+            <div class="photo-add">📷<span>Adicionar foto</span></div>
+            <input type="file" accept="image/*" multiple capture="environment" style="display:none;" onchange="addFotos(event)"/>
+          </label>
+        </div>`:''}
+      <button class="btn ${isEnc?'success':'primary'}" style="width:100%;padding:13px;font-size:14px;margin-top:4px;" onclick="salvarAtualizar()">${isEnc?'🔒 Encerrar chamado':'✅ Confirmar atendimento'}</button>`;
+  }
+
+  // FORM TÉCNICO
+  else if(tipo==='form-tec'){
+    var t=editTarget&&editTarget.nome?editTarget:null;
+    html+=`
+      <div class="modal-header"><span class="modal-title">${t?'Editar técnico':'Cadastrar técnico'}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="field"><label>Nome completo *</label><input id="f-tnome" placeholder="Nome do técnico" value="${t?t.nome:''}"/></div>
+      <div class="field"><label>WhatsApp (com DDD) *</label><input id="f-twhats" type="tel" inputmode="tel" placeholder="11999998888" value="${t?t.whatsapp||'':''}"/><div class="field-hint">Usado para enviar alertas de chamados</div></div>
+      <div class="field"><label>Empresa / Prestador</label><input id="f-tempresa" placeholder="Nome da empresa" value="${t?t.empresa||'':''}"/></div>
+      <button class="btn primary" style="width:100%;padding:13px;font-size:14px;" onclick="salvarTec(${t?`'${t.id}'`:'null'})">${t?'Salvar':'Cadastrar técnico'}</button>`;
+  }
+
+  body.innerHTML=html;
+  // Aplica prioridade selecionada no form novo chamado
+  if(tipo==='novo-chamado') selPrio(document.querySelectorAll('.prio-opt')[1],'media');
+  document.getElementById('modal-overlay').style.display='flex';
+  document.getElementById('modal-overlay').style.zIndex='9999';
+  document.body.style.overflow='hidden';
+}
+
+function selPrio(el,prio){
+  prioSel=prio;
+  document.querySelectorAll('.prio-opt').forEach(x=>{x.className='prio-opt';});
+  el.className=`prio-opt sel ${prio}`;
+}
+
+// ═══════════════════════════════════
+// AÇÕES
+// ═══════════════════════════════════
+function salvarNovo(){
+  var titulo=(document.getElementById('f-titulo').value||'').trim();
+  if(!titulo){toast('⚠️ Informe a ocorrência.');return;}
+  var tecId=document.getElementById('f-tecnico').value;
+  var tec=tecnicos.find(t=>t.id===tecId);
+  nextId++;
+  chamados.unshift({
+    id:'MAN-'+String(nextId).padStart(3,'0'),effortOS:null,
+    titulo,
+    equipamento:document.getElementById('f-equip').value.trim(),
+    patrimonio:document.getElementById('f-pat').value.trim(),
+    nSerie:document.getElementById('f-serie').value.trim(),
+    unidade:document.getElementById('f-unidade').value.trim(),
+    modelo:'',fabricante:'',
+    tecnicoId:tecId||null,nomeTecnico:tec?tec.nome:'',
+    prioridade:prioSel,status:'aberto',
+    descricao:document.getElementById('f-desc').value.trim()||titulo,
+    abertura:hoje(),atendimento:null,valor:null,
+    solucao:'',obs:'',fotos:[],encerramento:null,
+  });
+  save();closeModal();render();toast('✅ Chamado criado!');
+}
+
+function salvarAtrib(){
+  var c=editTarget;
+  var tecId=document.getElementById('f-atrib-tec').value;
+  var tec=tecnicos.find(t=>t.id===tecId);
+  c.tecnicoId=tecId||null;c.nomeTecnico=tec?tec.nome:'';
+  save();closeModal();render();toast('👷 Técnico atribuído!');
+}
+
+function salvarAtualizar(){
+  var c=editTarget;
+  var isEnc=c.status==='andamento';
+  var vEl=document.getElementById('f-valor');
+  if(vEl&&vEl.value) c.valor=parseFloat(vEl.value)||null;
+  if(!isEnc){
+    var aEl=document.getElementById('f-atend');
+    if(aEl&&aEl.value) c.atendimento=fmtData(aEl.value);
+    c.status='andamento';toast('✅ Chamado assumido!');
+  } else {
+    var sEl=document.getElementById('f-solucao');
+    var oEl=document.getElementById('f-obs');
+    if(sEl) c.solucao=sEl.value.trim();
+    if(oEl) c.obs=oEl.value.trim();
+    c.fotos=[...(c.fotos||[]),...tempFotos];
+    c.encerramento=hoje();c.status='encerrado';toast('🔒 Chamado encerrado!');
+  }
+  save();closeModal();render();
+}
+
+function salvarTec(id){
+  var nome=(document.getElementById('f-tnome').value||'').trim();
+  if(!nome){toast('⚠️ Informe o nome.');return;}
+  var whatsapp=(document.getElementById('f-twhats').value||'').replace(/\D/g,'');
+  var empresa=(document.getElementById('f-tempresa').value||'').trim();
+  if(id&&id!=='null'){
+    var t=tecnicos.find(x=>x.id===id);
+    if(t){t.nome=nome;t.whatsapp=whatsapp;t.empresa=empresa;}
+  } else {
+    tecnicos.push({id:'TEC-'+Date.now(),nome,whatsapp,empresa});
+  }
+  save();closeModal();renderLoginTecs();
+  if(currentTab==='tecnicos') renderTecnicos();
+  else render();
+  toast('✅ Técnico salvo!');
+}
+
+function getLinkTec(id) {
+  var base = window.location.href.split('?')[0].split('#')[0];
+  return base + '?tec=' + encodeURIComponent(id);
+}
+
+function copiarLinkTec(id) {
+  var tec = tecnicos.find(function(t){ return t.id === id; });
+  if (!tec) return;
+  var link = getLinkTec(id);
+  navigator.clipboard.writeText(link).then(function() {
+    toast('🔗 Link de ' + tec.nome.split(' ')[0] + ' copiado!');
+  }).catch(function() {
+    // Fallback para navegadores sem clipboard API
+    var ta = document.createElement('textarea');
+    ta.value = link;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('🔗 Link de ' + tec.nome.split(' ')[0] + ' copiado!');
+  });
+}
+
+function enviarLinkWhats(id) {
+  var tec = tecnicos.find(function(t){ return t.id === id; });
+  if (!tec) { toast('⚠️ Técnico não encontrado.'); return; }
+  if (!tec.whatsapp) { toast('⚠️ Técnico sem WhatsApp cadastrado.'); return; }
+  var link = getLinkTec(id);
+  var msg = encodeURIComponent(
+    'Olá ' + tec.nome.split(' ')[0] + '! 👋
+
+' +
+    'Aqui está seu link de acesso ao sistema de chamados de manutenção:
+
+' +
+    link + '
+
+' +
+    'Salve este link — ele abre direto nos seus chamados. ' +
+    'Você pode adicionar à tela inicial do celular para acesso rápido.'
+  );
+  var num = (tec.whatsapp || '').replace(/\D/g, '');
+  window.open('https://wa.me/55' + num + '?text=' + msg, '_blank');
+}
+
+function excluirTec(id){
+  if(!confirm('Excluir este técnico?')) return;
+  tecnicos=tecnicos.filter(t=>t.id!==id);
+  save();renderTecnicos();toast('🗑 Removido.');
+}
+
+// ═══════════════════════════════════
+// FOTOS
+// ═══════════════════════════════════
+function addFotos(e){
+  Array.from(e.target.files).forEach(f=>{
+    var r=new FileReader();
+    r.onload=ev=>{
+      tempFotos.push(ev.target.result);
+      var p=document.getElementById('photo-preview');
+      if(p){var img=document.createElement('img');img.src=ev.target.result;img.className='photo-thumb';p.appendChild(img);}
+    };
+    r.readAsDataURL(f);
+  });
+}
+function verFoto(src){
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:500;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`<img src="${src}" style="max-width:95%;max-height:90vh;border-radius:10px;"/>
+    <button onclick="this.parentNode.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;">✕</button>`;
+  document.body.appendChild(ov);
+}
+
+// ═══════════════════════════════════
+// MODAL UTILS
+// ═══════════════════════════════════
+function closeModal(){
+  document.getElementById('modal-overlay').style.display='none';
+  document.body.style.overflow='';tempFotos=[];
+}
+function closeModalOutside(e){
+  if(e.target===document.getElementById('modal-overlay')) closeModal();
+}
+
+// ═══════════════════════════════════
+// INTEGRAÇÃO EXTENSÃO
+// Polling no localStorage a cada 1s — extensão grava aqui
+// ═══════════════════════════════════
+function verificarNovasOS(){
+  try{
+    // Verifica nova chave v5
+    var raw=localStorage.getItem('maint_v5');
+    if(!raw||raw===_snap) return;
+    var data=JSON.parse(raw);
+    var idsAtuais=chamados.map(c=>c.id);
+    var novos=(data.chamados||[]).filter(c=>idsAtuais.indexOf(c.id)===-1);
+    chamados=data.chamados||[];
+    tecnicos=data.tecnicos||tecnicos;
+    nextId=data.nextId||nextId;
+    _snap=raw;
+    if(novos.length>0&&currentRole){
+      render();
+      toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
+    }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+migrar();
+load();
+// Não renderiza lista de técnicos no login — acesso apenas por link do WhatsApp
+_snap=localStorage.getItem('maint_v5')||'';
+setInterval(verificarNovasOS,1000);
+
+// Login automático por URL — ?tec=ID
+(function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var tecId = params.get('tec');
+
+    if (tecId) {
+      // Veio via link do WhatsApp — tenta logar direto
+      var tec = tecnicos.find(function(t){ return t.id === decodeURIComponent(tecId); });
+      if (tec) {
+        // Login automático — vai direto para os chamados
+        currentRole = 'tecnico';
+        currentTecnico = tec;
+        montarApp();
+      } else {
+        // ID não encontrado (técnico ainda não cadastrado ou link antigo)
+        document.getElementById('adm-section').style.display = 'none';
+        document.getElementById('login-card-aviso').style.display = 'block';
+      }
+    } else {
+      // Acesso sem link de técnico — mostra APENAS o botão de Analista
+      // Técnicos só entram pelo link do WhatsApp
+      // Não mostra lista de técnicos para evitar acesso indevido
+    }
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
