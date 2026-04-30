@@ -200,10 +200,24 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
     <div class="login-card" id="login-card-main">
       <div id="adm-section">
         <div class="login-sec-label">Analista</div>
-        <div class="login-row adm" onclick="entrarAdm()">
+        <div class="login-row adm" onclick="mostrarSenha()" id="btn-adm">
           <div class="lr-av adm">⚙️</div>
           <div class="lr-text"><div class="lr-name">Entrar como Analista</div><div class="lr-sub">Acesso restrito · senha necessária</div></div>
           <div class="lr-arr">›</div>
+        </div>
+        <div id="senha-box" style="display:none;margin-top:12px;">
+          <div style="margin-bottom:8px;">
+            <input id="f-senha-inline" type="password" placeholder="Digite a senha"
+              style="width:100%;padding:11px 13px;border-radius:10px;border:1px solid #E4E2DC;font-size:14px;font-family:inherit;background:#F8F7F4;"
+              onkeydown="if(event.key==='Enter')confirmarSenha()"/>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="esconderSenha()"
+              style="flex:1;padding:10px;border-radius:8px;border:1px solid #E4E2DC;background:transparent;font-size:13px;cursor:pointer;">Cancelar</button>
+            <button onclick="confirmarSenha()"
+              style="flex:1;padding:10px;border-radius:8px;border:none;background:#E05A1E;color:white;font-size:13px;font-weight:600;cursor:pointer;">Entrar</button>
+          </div>
+          <div id="senha-erro" style="display:none;color:#B91C1C;font-size:12px;margin-top:6px;text-align:center;">Senha incorreta. Tente novamente.</div>
         </div>
       </div>
     </div>
@@ -300,23 +314,30 @@ function renderLoginTecs(){
   if(!el) return; // elemento não existe nesta versão
 }
 
-function entrarAdm(){
-  openModal('login-adm');
+function mostrarSenha(){
+  document.getElementById('senha-box').style.display='block';
+  document.getElementById('btn-adm').style.display='none';
+  setTimeout(function(){ var s=document.getElementById('f-senha-inline'); if(s) s.focus(); },100);
 }
-function confirmarSenhaAdm(){
-  var s = document.getElementById('f-senha-adm');
+function esconderSenha(){
+  document.getElementById('senha-box').style.display='none';
+  document.getElementById('btn-adm').style.display='flex';
+  document.getElementById('senha-erro').style.display='none';
+  document.getElementById('f-senha-inline').value='';
+}
+function confirmarSenha(){
+  var s=document.getElementById('f-senha-inline');
   if(!s) return;
-  // Senha: manutencao2024 (altere aqui se quiser)
-  if(s.value === 'manutencao2024'){
-    closeModal();
+  if(s.value==='manutencao2024'){
     currentRole='adm';currentTecnico=null;montarApp();
   } else {
-    s.style.borderColor='#DC2626';
     s.value='';
-    s.placeholder='Senha incorreta, tente novamente';
-    setTimeout(function(){ s.style.borderColor=''; s.placeholder='Digite a senha'; }, 2000);
+    document.getElementById('senha-erro').style.display='block';
+    setTimeout(function(){ document.getElementById('senha-erro').style.display='none'; },3000);
   }
 }
+function entrarAdm(){ mostrarSenha(); }
+function confirmarSenhaAdm(){ confirmarSenha(); }
 function entrarTec(id){
   currentRole='tecnico';
   currentTecnico=tecnicos.find(t=>t.id===id);
@@ -327,7 +348,6 @@ function sair(){
   currentRole=null;currentTecnico=null;currentTab='todos';
   document.getElementById('pg-login').style.display='flex';
   document.getElementById('pg-app').style.display='none';
-  renderLoginTecs();
 }
 
 // ═══════════════════════════════════
@@ -758,8 +778,7 @@ function salvarTec(id){
   } else {
     tecnicos.push({id:'TEC-'+Date.now(),nome,whatsapp,empresa});
   }
-  save();closeModal();renderLoginTecs();
-  if(currentTab==='tecnicos') renderTecnicos();
+  save();closeModal();if(currentTab==='tecnicos') renderTecnicos();
   else render();
   toast('✅ Técnico salvo!');
 }
