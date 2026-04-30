@@ -225,6 +225,44 @@ function confirmarSenha(){
     setTimeout(function(){ document.getElementById('senha-erro').style.display='none'; },3000);
   }
 }
+function montarApp(){
+  document.getElementById('pg-login').style.display='none';
+  document.getElementById('pg-app').style.display='block';
+  var isAdm=(typeof currentRole!=='undefined')&&currentRole==='adm';
+  var isTec=(typeof currentRole!=='undefined')&&currentRole==='tecnico';
+  if(isAdm){
+    document.getElementById('tb-av').textContent='A';
+    document.getElementById('tb-role').textContent='Analista - Acesso completo';
+    document.getElementById('tb-name').textContent='Chamados';
+    document.getElementById('fab-btn').style.display='flex';
+    document.getElementById('stat-bar-wrap').innerHTML='<div class="stat-bar" id="stat-bar"></div>';
+    document.getElementById('tabs-bar').innerHTML=
+      '<div class="tab active" onclick="setTab(this,'todos')">Todos</div>'+
+      '<div class="tab" onclick="setTab(this,'aberto')">Abertos</div>'+
+      '<div class="tab" onclick="setTab(this,'andamento')">Andamento</div>'+
+      '<div class="tab" onclick="setTab(this,'encerrado')">Encerrados</div>'+
+      '<div class="tab" onclick="setTab(this,'tecnicos')">Tecnicos</div>';
+    document.getElementById('toolbar-bar').innerHTML=
+      '<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()"/>';
+    if(typeof currentTab!=='undefined') currentTab='todos';
+  } else if(isTec&&(typeof currentTecnico!=='undefined')&&currentTecnico){
+    var nome=currentTecnico.nome||'';
+    var ini=nome.split(' ').slice(0,2).map(function(p){return p[0];}).join('').toUpperCase();
+    document.getElementById('tb-av').textContent=ini||'T';
+    document.getElementById('tb-role').textContent='Tecnico';
+    document.getElementById('tb-name').textContent=nome.split(' ')[0];
+    document.getElementById('fab-btn').style.display='none';
+    document.getElementById('stat-bar-wrap').innerHTML='';
+    document.getElementById('tabs-bar').innerHTML=
+      '<div class="tab active" onclick="setTab(this,'meus')">Meus chamados</div>'+
+      '<div class="tab" onclick="setTab(this,'and-tec')">Em andamento</div>'+
+      '<div class="tab" onclick="setTab(this,'enc-tec')">Encerrados</div>';
+    document.getElementById('toolbar-bar').innerHTML=
+      '<input id="search-input" placeholder="Buscar chamado..." oninput="render()"/>';
+    if(typeof currentTab!=='undefined') currentTab='meus';
+  }
+  if(typeof render==='function') render();
+}
 </script>
 </head>
 <body>
@@ -845,17 +883,11 @@ function enviarLinkWhats(id) {
   if (!tec.whatsapp) { toast('⚠️ Técnico sem WhatsApp cadastrado.'); return; }
   var link = getLinkTec(id);
   var msg = encodeURIComponent(
-    'Olá ' + tec.nome.split(' ')[0] + '! 👋
-
-' +
-    'Aqui está seu link de acesso ao sistema de chamados de manutenção:
-
-' +
-    link + '
-
-' +
+    'Ola ' + tec.nome.split(' ')[0] + '! ' +
+    'Aqui esta seu link de acesso ao sistema de chamados:\n\n' +
+    link + '\n\n' +
     'Salve este link - ele abre direto nos seus chamados. ' +
-    'Você pode adicionar à tela inicial do celular para acesso rápido.'
+    'Voce pode adicionar a tela inicial do celular para acesso rapido.'
   );
   var num = (tec.whatsapp || '').replace(/\D/g, '');
   window.open('https://wa.me/55' + num + '?text=' + msg, '_blank');
