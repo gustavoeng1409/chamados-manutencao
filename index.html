@@ -297,12 +297,7 @@ function toast(msg,dur=3000){
 // ═══════════════════════════════════
 function renderLoginTecs(){
   var el=document.getElementById('login-tec-list');
-  el.innerHTML=tecnicos.map(t=>`
-    <div class="login-row" onclick="entrarTec('${t.id}')">
-      <div class="lr-av tec">${iniciais(t.nome)}</div>
-      <div class="lr-text"><div class="lr-name">${t.nome}</div><div class="lr-sub">${t.empresa||t.whatsapp||'Técnico terceiro'}</div></div>
-      <div class="lr-arr">›</div>
-    </div>`).join('');
+  if(!el) return; // elemento não existe nesta versão
 }
 
 function entrarAdm(){
