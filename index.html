@@ -184,6 +184,30 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
 .modal-sep{border:none;border-top:1px solid var(--border);margin:14px 0;}
 .toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:400;white-space:nowrap;max-width:94vw;text-align:center;box-shadow:var(--shmd);pointer-events:none;}
 </style>
+<script>
+function mostrarSenha(){
+  document.getElementById('senha-box').style.display='block';
+  document.getElementById('btn-adm').style.display='none';
+  setTimeout(function(){ var s=document.getElementById('f-senha-inline'); if(s) s.focus(); },100);
+}
+function esconderSenha(){
+  document.getElementById('senha-box').style.display='none';
+  document.getElementById('btn-adm').style.display='flex';
+  document.getElementById('senha-erro').style.display='none';
+  document.getElementById('f-senha-inline').value='';
+}
+function confirmarSenha(){
+  var s=document.getElementById('f-senha-inline');
+  if(!s) return;
+  if(s.value==='manutencao2024'){
+    currentRole='adm';currentTecnico=null;montarApp();
+  } else {
+    s.value='';
+    document.getElementById('senha-erro').style.display='block';
+    setTimeout(function(){ document.getElementById('senha-erro').style.display='none'; },3000);
+  }
+}
+</script>
 </head>
 <body>
 
