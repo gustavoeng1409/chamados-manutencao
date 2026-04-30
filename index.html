@@ -202,6 +202,7 @@ function confirmarSenha(){
   if(s.value==='manutencao2024'){
     currentRole='adm';
     currentTecnico=null;
+    try { sessionStorage.setItem('role_adm','1'); } catch(e){}
     document.getElementById('pg-login').style.display='none';
     document.getElementById('pg-app').style.display='block';
     document.getElementById('tb-av').textContent='A';
@@ -241,7 +242,8 @@ function montarApp(){
       '<div class="tab" onclick="setTab(this,'aberto')">Abertos</div>'+
       '<div class="tab" onclick="setTab(this,'andamento')">Andamento</div>'+
       '<div class="tab" onclick="setTab(this,'encerrado')">Encerrados</div>'+
-      '<div class="tab" onclick="setTab(this,'tecnicos')">Tecnicos</div>';
+      '<div class="tab" onclick="setTab(this,'tecnicos')">Tecnicos</div>'+
+      '<div class="tab" onclick="setTab(this,'por-tec')">Por Tecnico</div>';
     document.getElementById('toolbar-bar').innerHTML=
       '<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()"/>';
     if(typeof currentTab!=='undefined') currentTab='todos';
@@ -414,6 +416,7 @@ function entrarTec(id){
   montarApp();
 }
 function sair(){
+  try { sessionStorage.removeItem('role_adm'); } catch(e){}
   currentRole=null;currentTecnico=null;currentTab='todos';
   document.getElementById('pg-login').style.display='flex';
   document.getElementById('pg-app').style.display='none';
@@ -496,6 +499,7 @@ function getList(){
 // ---
 function render(){
   if(currentTab==='tecnicos'){renderTecnicos();return;}
+  if(currentTab==='por-tec'){renderPorTecnico();return;}
 
   // Stats bar
   var sb=document.getElementById('stat-bar');
@@ -559,8 +563,47 @@ function render(){
 }
 
 // ---
-// TÉCNICOS
+// TECNICOS
 // ---
+function renderPorTecnico(){
+  document.getElementById('counter').textContent=chamados.length;
+  var sb=document.getElementById('stat-bar');
+  if(sb) sb.innerHTML='';
+  var el=document.getElementById('list-content');
+  if(!tecnicos.length){
+    el.innerHTML='<div class="empty full-width"><div class="empty-icon">👷</div><h3>Nenhum tecnico</h3></div>';
+    return;
+  }
+  var html='';
+  tecnicos.forEach(function(tec){
+    var chs=chamados.filter(function(x){ return x.tecnicoId===tec.id; });
+    if(!chs.length) return;
+    var ini=tec.nome.split(' ').slice(0,2).map(function(p){return p[0];}).join('').toUpperCase();
+    html+='<div class="tec-card full-width" style="flex-direction:column;align-items:flex-start;gap:8px;">'+
+      '<div style="display:flex;align-items:center;gap:10px;width:100%;">'+
+      '<div class="tec-av">'+ini+'</div>'+
+      '<div class="tec-info"><div class="tec-name">'+tec.nome+'</div>'+
+      '<div class="tec-sub">'+chs.length+' chamado'+(chs.length!==1?'s':'')+'</div></div>'+
+      '<button class="btn primary" style="padding:6px 12px;font-size:11px;flex:0;" onclick="copiarChamadosTec(''+tec.id+'')">Copiar</button>'+
+      '</div>';
+    chs.forEach(function(ch){
+      html+='<div style="width:100%;background:var(--surface2);border-radius:8px;padding:8px 10px;font-size:12px;">'+
+        '<span class="badge '+ch.status+'" style="margin-right:6px;">'+STATUS[ch.status]+'</span>'+
+        '<strong>'+(ch.titulo||ch.id).substring(0,60)+'</strong>'+
+        (ch.equipamento?'<br>Equip: '+ch.equipamento:'')+
+        (ch.unidade?'  |  Setor: '+ch.unidade:'')+
+        '<div style="display:flex;gap:4px;margin-top:6px;">'+
+        '<button class="btn" style="padding:4px 8px;font-size:11px;" onclick="openModal('ver',''+ch.id+'')">Ver</button>'+
+        (ch.status!=='encerrado'?'<button class="btn ghost" style="padding:4px 8px;font-size:11px;" onclick="openModal('atrib',''+ch.id+'')">Atribuir</button>':'')+
+        (ch.status==='encerrado'?'<button class="btn" style="padding:4px 8px;font-size:11px;background:var(--amber-bg);color:var(--amber);" onclick="reabrirChamado(''+ch.id+'')">Reabrir</button>':'')+
+        '</div></div>';
+    });
+    html+='</div>';
+  });
+  if(!html) html='<div class="empty full-width"><div class="empty-icon">📋</div><h3>Nenhum chamado atribuido</h3></div>';
+  el.innerHTML=html;
+}
+
 function renderTecnicos(){
   document.getElementById('counter').textContent=tecnicos.length;
   var sb=document.getElementById('stat-bar');
@@ -575,10 +618,11 @@ function renderTecnicos(){
         <div class="tec-sub">${t.empresa?t.empresa+' · ':''}${t.whatsapp||'Sem telefone'} · ${ab} aberto${ab!==1?'s':''}</div>
       </div>
       <div class="tec-acts">
-        <button class="icon-btn" onclick="copiarLinkTec('${t.id}')" title="Copiar link do técnico">🔗</button>
-        <button class="icon-btn" onclick="enviarLinkWhats('${t.id}')" title="Enviar link pelo WhatsApp">📱</button>
-        <button class="icon-btn" onclick="openModal('form-tec','${t.id}')">✏️</button>
-        <button class="icon-btn" onclick="excluirTec('${t.id}')">🗑</button>
+        <button class="icon-btn" onclick="copiarChamadosTec('${t.id}')" title="Copiar chamados">📋</button>
+        <button class="icon-btn" onclick="copiarLinkTec('${t.id}')" title="Copiar link">🔗</button>
+        <button class="icon-btn" onclick="enviarLinkWhats('${t.id}')" title="Enviar WhatsApp">📱</button>
+        <button class="icon-btn" onclick="openModal('form-tec','${t.id}')">✏</button>
+        <button class="icon-btn" onclick="excluirTec('${t.id}')">X</button>
       </div>
     </div>`;
   }).join(''):'<div class="empty full-width"><div class="empty-icon">👷</div><h3>Nenhum técnico</h3><p>Cadastre os técnicos terceiros para atribuir chamados.</p></div>';
@@ -627,7 +671,7 @@ function openModal(tipo,id){
   if(tipo==='login-adm'){
     html+=`
       <div class="modal-handle"></div>
-      <div class="modal-header"><span class="modal-title">Acesso Analista</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><span class="modal-title">Acesso Analista</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div style="text-align:center;font-size:32px;margin-bottom:8px;">🔐</div>
       <p style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:18px;">Digite a senha para acessar o painel do analista</p>
       <div class="field">
@@ -642,7 +686,7 @@ function openModal(tipo,id){
   else if(tipo==='novo-chamado'){
     var opsTec=tecnicos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
     html+=`
-      <div class="modal-header"><span class="modal-title">Novo chamado</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><span class="modal-title">Novo chamado</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div class="field"><label>Ocorrência *</label><input id="f-titulo" placeholder="Descreva o problema"/></div>
       <div class="field"><label>Equipamento</label><input id="f-equip" placeholder="Nome ou código"/></div>
       <div class="field"><label>Patrimônio</label><input id="f-pat" placeholder="Número de patrimônio"/></div>
@@ -669,7 +713,7 @@ function openModal(tipo,id){
     html+=`
       <div class="modal-header">
         <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">${c.id}</span>
-        <button class="close-btn" onclick="closeModal()">✕</button>
+        <button class="close-btn" onclick="closeModal()">X</button>
       </div>
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
@@ -691,6 +735,7 @@ function openModal(tipo,id){
       <div class="detail-block">
         <div class="sec">Responsável e datas</div>
         <div class="detail-row"><span class="dl">Técnico</span><span class="dv">${c.nomeTecnico||'Não atribuído'}</span></div>
+        ${c.requisitante?`<div class="detail-row"><span class="dl">Requisitante</span><span class="dv">${c.requisitante}</span></div>`:''}
         ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
         ${c.atendimento?`<div class="detail-row"><span class="dl">Atendimento</span><span class="dv">${c.atendimento}</span></div>`:''}
         ${c.valor?`<div class="detail-row"><span class="dl">Valor</span><span class="dv">${fmtValor(c.valor)}</span></div>`:''}
@@ -705,8 +750,9 @@ function openModal(tipo,id){
       ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec">Fotos</div><div class="photo-grid">${c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join('')}</div></div>`:''}
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="closeModal()">Fechar</button>
-        ${isAdm&&c.status!=='encerrado'?`<button class="btn primary" onclick="openModal('atrib','${c.id}')">👷 Atribuir</button>`:''}
+        ${isAdm&&c.status!=='encerrado'?`<button class="btn primary" onclick="openModal('atrib','${c.id}')">Atribuir</button>`:''}
         ${isAdm&&c.nomeTecnico&&c.status!=='encerrado'?`<button class="btn whats" onclick="enviarWhats('${c.id}')">WhatsApp</button>`:''}
+        ${isAdm&&c.status==='encerrado'?`<button class="btn" style="background:var(--amber-bg);color:var(--amber);" onclick="reabrirChamado('${c.id}')">Reabrir</button>`:''}
         ${isTec&&c.status!=='encerrado'?`<button class="btn ${c.status==='aberto'?'primary':'success'}" onclick="openModal('atualizar','${c.id}')">${c.status==='aberto'?'Assumir':'Encerrar'}</button>`:''}
       </div>`;
   }
@@ -716,7 +762,7 @@ function openModal(tipo,id){
     var c=editTarget;
     var opsTec=tecnicos.map(t=>`<option value="${t.id}" ${c.tecnicoId===t.id?'selected':''}>${t.nome}</option>`).join('');
     html+=`
-      <div class="modal-header"><span class="modal-title">Atribuir técnico</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><span class="modal-title">Atribuir técnico</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div class="info-box">${trunc(tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS),65)}<br><span style="font-size:11px;opacity:.8;">${c.id}${c.unidade?' · '+c.unidade:''}</span></div>
       <div class="field"><label>Técnico responsável</label><select id="f-atrib-tec"><option value="">- Sem atribuição -</option>${opsTec}</select></div>
       <div style="display:flex;gap:8px;">
@@ -731,7 +777,7 @@ function openModal(tipo,id){
     var isEnc=c.status==='andamento';
     var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
     html+=`
-      <div class="modal-header"><span class="modal-title">${isEnc?'Encerrar chamado':'Assumir chamado'}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><span class="modal-title">${isEnc?'Encerrar chamado':'Assumir chamado'}</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div class="info-box"><strong>${trunc(titulo,80)}</strong><br><span style="font-size:11px;opacity:.8;">${c.id}</span></div>
       <div class="detail-block" style="margin-bottom:14px;">
         <div class="sec">Informações do equipamento</div>
@@ -761,7 +807,7 @@ function openModal(tipo,id){
   else if(tipo==='form-tec'){
     var t=editTarget&&editTarget.nome?editTarget:null;
     html+=`
-      <div class="modal-header"><span class="modal-title">${t?'Editar técnico':'Cadastrar técnico'}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><span class="modal-title">${t?'Editar técnico':'Cadastrar técnico'}</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div class="field"><label>Nome completo *</label><input id="f-tnome" placeholder="Nome do técnico" value="${t?t.nome:''}"/></div>
       <div class="field"><label>WhatsApp (com DDD) *</label><input id="f-twhats" type="tel" inputmode="tel" placeholder="11999998888" value="${t?t.whatsapp||'':''}"/><div class="field-hint">Usado para enviar alertas de chamados</div></div>
       <div class="field"><label>Empresa / Prestador</label><input id="f-tempresa" placeholder="Nome da empresa" value="${t?t.empresa||'':''}"/></div>
@@ -894,9 +940,46 @@ function enviarLinkWhats(id) {
 }
 
 function excluirTec(id){
-  if(!confirm('Excluir este técnico?')) return;
+  if(!confirm('Excluir este tecnico?')) return;
   tecnicos=tecnicos.filter(t=>t.id!==id);
-  save();renderTecnicos();toast('🗑 Removido.');
+  save();renderTecnicos();toast('Removido.');
+}
+
+function reabrirChamado(id){
+  var ch=chamados.find(function(x){ return x.id===id; });
+  if(!ch) return;
+  if(!confirm('Reabrir este chamado?')) return;
+  ch.status='aberto';
+  ch.encerramento=null;
+  save();closeModal();render();toast('Chamado reaberto!');
+}
+
+function copiarChamadosTec(tecId){
+  var tec=tecnicos.find(function(t){ return t.id===tecId; });
+  if(!tec){ toast('Tecnico nao encontrado'); return; }
+  var lista=chamados.filter(function(x){ return x.tecnicoId===tecId; });
+  if(!lista.length){ toast('Nenhum chamado para este tecnico'); return; }
+  var txt='Chamados de '+tec.nome+'\n\n';
+  lista.forEach(function(ch,i){
+    txt+=(i+1)+' - '+(ch.titulo||ch.id)+'\n';
+    if(ch.unidade) txt+='Setor: '+ch.unidade+'\n';
+    if(ch.equipamento) txt+='Equipamento: '+ch.equipamento+'\n';
+    if(ch.patrimonio) txt+='Patrimonio: '+ch.patrimonio+'\n';
+    if(ch.nSerie) txt+='N de Serie: '+ch.nSerie+'\n';
+    if(ch.requisitante) txt+='Requisitante: '+ch.requisitante+'\n';
+    txt+='Status: '+(ch.status==='aberto'?'Aberto':ch.status==='andamento'?'Em andamento':'Encerrado')+'\n';
+    if(ch.solucao) txt+='Solucao: '+ch.solucao+'\n';
+    txt+='\n';
+  });
+  navigator.clipboard.writeText(txt).then(function(){
+    toast('Chamados copiados!');
+  }).catch(function(){
+    var ta=document.createElement('textarea');
+    ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');ta.remove();
+    toast('Chamados copiados!');
+  });
 }
 
 // ---
@@ -917,7 +1000,7 @@ function verFoto(src){
   var ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:500;display:flex;align-items:center;justify-content:center;';
   ov.innerHTML=`<img src="${src}" style="max-width:95%;max-height:90vh;border-radius:10px;"/>
-    <button onclick="this.parentNode.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;">✕</button>`;
+    <button onclick="this.parentNode.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;">X</button>`;
   document.body.appendChild(ov);
 }
 
@@ -962,6 +1045,18 @@ migrar();
 load();
 _snap=localStorage.getItem('maint_v5')||'';
 setInterval(verificarNovasOS,1000);
+
+// Persiste sessao do analista para nao perder ao recarregar
+(function(){
+  try {
+    var sess = sessionStorage.getItem('role_adm');
+    if(sess === '1'){
+      currentRole='adm'; currentTecnico=null;
+      montarApp();
+      return;
+    }
+  } catch(e){}
+})();
 
 // Login via URL ?adm=1 (fallback quando montarApp não carrega na hora)
 (function(){
