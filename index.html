@@ -200,7 +200,25 @@ function confirmarSenha(){
   var s=document.getElementById('f-senha-inline');
   if(!s) return;
   if(s.value==='manutencao2024'){
-    currentRole='adm';currentTecnico=null;montarApp();
+    currentRole='adm';
+    currentTecnico=null;
+    document.getElementById('pg-login').style.display='none';
+    document.getElementById('pg-app').style.display='block';
+    document.getElementById('tb-av').textContent='A';
+    document.getElementById('tb-role').textContent='Analista - Acesso completo';
+    document.getElementById('tb-name').textContent='Chamados';
+    document.getElementById('fab-btn').style.display='flex';
+    document.getElementById('stat-bar-wrap').innerHTML='<div class="stat-bar" id="stat-bar"></div>';
+    document.getElementById('tabs-bar').innerHTML=
+      '<div class="tab active" onclick="setTab(this,\'todos\')">Todos</div>'+
+      '<div class="tab" onclick="setTab(this,\'aberto\')">Abertos</div>'+
+      '<div class="tab" onclick="setTab(this,\'andamento\')">Andamento</div>'+
+      '<div class="tab" onclick="setTab(this,\'encerrado\')">Encerrados</div>'+
+      '<div class="tab" onclick="setTab(this,\'tecnicos\')">Tecnicos</div>';
+    document.getElementById('toolbar-bar').innerHTML=
+      '<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()"/>';
+    currentTab='todos';
+    if(typeof render==='function') render();
   } else {
     s.value='';
     document.getElementById('senha-erro').style.display='block';
@@ -285,17 +303,17 @@ function confirmarSenha(){
 </div>
 
 <script>
-// ═══════════════════════════════════
+// ---
 // ESTADO
-// ═══════════════════════════════════
+// ---
 var chamados=[], tecnicos=[], nextId=1;
 var currentTab='todos', currentRole=null, currentTecnico=null;
 var editTarget=null, tempFotos=[], prioSel='media';
 var _snap='';
 
-// ═══════════════════════════════════
+// ---
 // PERSISTÊNCIA
-// ═══════════════════════════════════
+// ---
 function save(){try{localStorage.setItem('maint_v5',JSON.stringify({chamados,tecnicos,nextId}));}catch(e){}}
 function load(){try{var r=localStorage.getItem('maint_v5');if(r){var d=JSON.parse(r);chamados=d.chamados||[];tecnicos=d.tecnicos||[];nextId=d.nextId||1;}}catch(e){}}
 
@@ -310,14 +328,14 @@ function migrar(){
   }catch(e){}
 }
 
-// ═══════════════════════════════════
+// ---
 // UTILS
-// ═══════════════════════════════════
+// ---
 var pad=n=>String(n).padStart(2,'0');
 var hoje=()=>{var d=new Date();return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();};
 var fmtData=iso=>{if(!iso)return'';var d=new Date(iso+'T12:00:00');return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();};
 var fmtValor=v=>v?'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
-var trunc=(s,n)=>s&&s.length>n?s.slice(0,n)+'…':(s||'');
+var trunc=(s,n)=>s&&s.length>n?s.slice(0,n)+'...':(s||'');
 var iniciais=n=>(n||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
 var fwNum=t=>(t||'').replace(/\D/g,'');
 var tituloValido=t=>t&&t.toLowerCase().indexOf('no elements')===-1&&t.toLowerCase().indexOf('consider changing')===-1;
@@ -330,9 +348,9 @@ function toast(msg,dur=3000){
   document.body.appendChild(el);setTimeout(()=>el.remove(),dur);
 }
 
-// ═══════════════════════════════════
+// ---
 // LOGIN
-// ═══════════════════════════════════
+// ---
 function renderLoginTecs(){
   var el=document.getElementById('login-tec-list');
   if(!el) return; // elemento não existe nesta versão
@@ -349,17 +367,6 @@ function esconderSenha(){
   document.getElementById('senha-erro').style.display='none';
   document.getElementById('f-senha-inline').value='';
 }
-function confirmarSenha(){
-  var s=document.getElementById('f-senha-inline');
-  if(!s) return;
-  if(s.value==='manutencao2024'){
-    currentRole='adm';currentTecnico=null;montarApp();
-  } else {
-    s.value='';
-    document.getElementById('senha-erro').style.display='block';
-    setTimeout(function(){ document.getElementById('senha-erro').style.display='none'; },3000);
-  }
-}
 function entrarAdm(){ mostrarSenha(); }
 function confirmarSenhaAdm(){ confirmarSenha(); }
 function entrarTec(id){
@@ -374,9 +381,9 @@ function sair(){
   document.getElementById('pg-app').style.display='none';
 }
 
-// ═══════════════════════════════════
+// ---
 // MONTAR APP
-// ═══════════════════════════════════
+// ---
 function montarApp(){
   document.getElementById('pg-login').style.display='none';
   document.getElementById('pg-app').style.display='block';
@@ -446,9 +453,9 @@ function getList(){
   return list;
 }
 
-// ═══════════════════════════════════
+// ---
 // RENDER
-// ═══════════════════════════════════
+// ---
 function render(){
   if(currentTab==='tecnicos'){renderTecnicos();return;}
 
@@ -513,9 +520,9 @@ function render(){
   }).join('');
 }
 
-// ═══════════════════════════════════
+// ---
 // TÉCNICOS
-// ═══════════════════════════════════
+// ---
 function renderTecnicos(){
   document.getElementById('counter').textContent=tecnicos.length;
   var sb=document.getElementById('stat-bar');
@@ -541,16 +548,16 @@ function renderTecnicos(){
   el.innerHTML=html;
 }
 
-// ═══════════════════════════════════
+// ---
 // WHATSAPP
-// ═══════════════════════════════════
+// ---
 function enviarWhats(id){
   var c=chamados.find(x=>x.id===id);
   if(!c||!c.tecnicoId){toast('⚠️ Atribua um técnico primeiro.');return;}
   var tec=tecnicos.find(t=>t.id===c.tecnicoId);
   if(!tec||!tec.whatsapp){toast('⚠️ Técnico sem WhatsApp.');return;}
   var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
-  // Link direto com ID do técnico — ao clicar ele já entra nos seus chamados
+  // Link direto com ID do técnico - ao clicar ele já entra nos seus chamados
   var base=window.location.href.split('?')[0].split('#')[0];
   var linkTec=base+'?tec='+encodeURIComponent(tec.id);
   var msg=encodeURIComponent(
@@ -566,9 +573,9 @@ function enviarWhats(id){
   window.open('https://wa.me/55'+fwNum(tec.whatsapp)+'?text='+msg,'_blank');
 }
 
-// ═══════════════════════════════════
+// ---
 // MODAIS
-// ═══════════════════════════════════
+// ---
 function openModal(tipo,id){
   editTarget=id?(chamados.find(c=>c.id===id)||tecnicos.find(t=>t.id===id)):null;
   tempFotos=[];
@@ -603,7 +610,7 @@ function openModal(tipo,id){
       <div class="field"><label>Patrimônio</label><input id="f-pat" placeholder="Número de patrimônio"/></div>
       <div class="field"><label>Nº de Série</label><input id="f-serie" placeholder="Número de série"/></div>
       <div class="field"><label>Setor / Unidade</label><input id="f-unidade" placeholder="Ex: AT HOSP UNIMED FAROL"/></div>
-      <div class="field"><label>Técnico responsável</label><select id="f-tecnico"><option value="">— Sem atribuição —</option>${opsTec}</select></div>
+      <div class="field"><label>Técnico responsável</label><select id="f-tecnico"><option value="">- Sem atribuição -</option>${opsTec}</select></div>
       <div class="field"><label>Prioridade</label>
         <div class="prio-row">
           <div class="prio-opt sel media" onclick="selPrio(this,'alta')">🔴 Alta</div>
@@ -673,14 +680,14 @@ function openModal(tipo,id){
     html+=`
       <div class="modal-header"><span class="modal-title">Atribuir técnico</span><button class="close-btn" onclick="closeModal()">✕</button></div>
       <div class="info-box">${trunc(tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS),65)}<br><span style="font-size:11px;opacity:.8;">${c.id}${c.unidade?' · '+c.unidade:''}</span></div>
-      <div class="field"><label>Técnico responsável</label><select id="f-atrib-tec"><option value="">— Sem atribuição —</option>${opsTec}</select></div>
+      <div class="field"><label>Técnico responsável</label><select id="f-atrib-tec"><option value="">- Sem atribuição -</option>${opsTec}</select></div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="closeModal()">Cancelar</button>
         <button class="btn primary" onclick="salvarAtrib()">Confirmar</button>
       </div>`;
   }
 
-  // ATUALIZAR — TÉCNICO
+  // ATUALIZAR - TÉCNICO
   else if(tipo==='atualizar'){
     var c=editTarget;
     var isEnc=c.status==='andamento';
@@ -737,9 +744,9 @@ function selPrio(el,prio){
   el.className=`prio-opt sel ${prio}`;
 }
 
-// ═══════════════════════════════════
+// ---
 // AÇÕES
-// ═══════════════════════════════════
+// ---
 function salvarNovo(){
   var titulo=(document.getElementById('f-titulo').value||'').trim();
   if(!titulo){toast('⚠️ Informe a ocorrência.');return;}
@@ -847,7 +854,7 @@ function enviarLinkWhats(id) {
     link + '
 
 ' +
-    'Salve este link — ele abre direto nos seus chamados. ' +
+    'Salve este link - ele abre direto nos seus chamados. ' +
     'Você pode adicionar à tela inicial do celular para acesso rápido.'
   );
   var num = (tec.whatsapp || '').replace(/\D/g, '');
@@ -860,9 +867,9 @@ function excluirTec(id){
   save();renderTecnicos();toast('🗑 Removido.');
 }
 
-// ═══════════════════════════════════
+// ---
 // FOTOS
-// ═══════════════════════════════════
+// ---
 function addFotos(e){
   Array.from(e.target.files).forEach(f=>{
     var r=new FileReader();
@@ -882,9 +889,9 @@ function verFoto(src){
   document.body.appendChild(ov);
 }
 
-// ═══════════════════════════════════
+// ---
 // MODAL UTILS
-// ═══════════════════════════════════
+// ---
 function closeModal(){
   document.getElementById('modal-overlay').style.display='none';
   document.body.style.overflow='';tempFotos=[];
@@ -893,10 +900,10 @@ function closeModalOutside(e){
   if(e.target===document.getElementById('modal-overlay')) closeModal();
 }
 
-// ═══════════════════════════════════
+// ---
 // INTEGRAÇÃO EXTENSÃO
-// Polling no localStorage a cada 1s — extensão grava aqui
-// ═══════════════════════════════════
+// Polling no localStorage a cada 1s - extensão grava aqui
+// ---
 function verificarNovasOS(){
   try{
     // Verifica nova chave v5
@@ -916,26 +923,38 @@ function verificarNovasOS(){
   }catch(e){}
 }
 
-// ═══════════════════════════════════
+// ---
 // INIT
-// ═══════════════════════════════════
+// ---
 migrar();
 load();
-// Não renderiza lista de técnicos no login — acesso apenas por link do WhatsApp
 _snap=localStorage.getItem('maint_v5')||'';
 setInterval(verificarNovasOS,1000);
 
-// Login automático por URL — ?tec=ID
+// Login via URL ?adm=1 (fallback quando montarApp não carrega na hora)
+(function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    if(params.get('adm')==='1'){
+      currentRole='adm';currentTecnico=null;
+      // Limpa URL
+      history.replaceState(null,'',window.location.pathname);
+      montarApp();
+    }
+  } catch(e){}
+})();
+
+// Login automático por URL - ?tec=ID
 (function(){
   try {
     var params = new URLSearchParams(window.location.search);
     var tecId = params.get('tec');
 
     if (tecId) {
-      // Veio via link do WhatsApp — tenta logar direto
+      // Veio via link do WhatsApp - tenta logar direto
       var tec = tecnicos.find(function(t){ return t.id === decodeURIComponent(tecId); });
       if (tec) {
-        // Login automático — vai direto para os chamados
+        // Login automático - vai direto para os chamados
         currentRole = 'tecnico';
         currentTecnico = tec;
         montarApp();
@@ -945,7 +964,7 @@ setInterval(verificarNovasOS,1000);
         document.getElementById('login-card-aviso').style.display = 'block';
       }
     } else {
-      // Acesso sem link de técnico — mostra APENAS o botão de Analista
+      // Acesso sem link de técnico - mostra APENAS o botão de Analista
       // Técnicos só entram pelo link do WhatsApp
       // Não mostra lista de técnicos para evitar acesso indevido
     }
