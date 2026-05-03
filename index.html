@@ -96,6 +96,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
 .card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;box-shadow:var(--sh);}
 .card-stripe{height:4px;}
 .card-stripe.aberto{background:var(--amber-bd);}
+.card-stripe.cotacao{background:#C4B5FD;}
 .card-stripe.andamento{background:var(--blue-bd);}
 .card-stripe.encerrado{background:var(--green-bd);}
 .card-body{padding:13px 14px;}
@@ -105,6 +106,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
 .badge.aberto{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
 .badge.andamento{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);}
 .badge.encerrado{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+.badge.cotacao{background:#EDE9FE;color:#7C3AED;border:1px solid #C4B5FD;}
 .prio-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:5px;}
 .prio-dot.alta{background:#EF4444;}
 .prio-dot.media{background:#F59E0B;}
@@ -183,6 +185,9 @@ html,body{min-height:100vh;background:var(--bg);font-family:var(--font);color:va
 .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;}
 .modal-sep{border:none;border-top:1px solid var(--border);margin:14px 0;}
 .toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:400;white-space:nowrap;max-width:94vw;text-align:center;box-shadow:var(--shmd);pointer-events:none;}
+.btn-aprovar{width:32px;height:32px;border-radius:8px;border:none;background:#0D7D4D;color:white;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+.btn-reprovar{width:32px;height:32px;border-radius:8px;border:none;background:#B91C1C;color:white;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+.btn-reabrir{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);border-radius:var(--rxs);padding:4px 8px;font-size:11px;cursor:pointer;font-family:var(--font);}
 </style>
 <script>
 function mostrarSenha(){
@@ -197,6 +202,116 @@ function esconderSenha(){
   document.getElementById('f-senha-inline').value='';
 }
 function confirmarSenha(){
+  var s=document.getElementById('f-senha-inline');
+  if(!s) return;
+  if(s.value==='manutencao2024'){
+    // Mostra selecao de perfil de analista
+    mostrarSelecaoPerfil();
+  } else {
+    s.value='';
+    document.getElementById('senha-erro').style.display='block';
+    setTimeout(function(){ document.getElementById('senha-erro').style.display='none'; },3000);
+  }
+}
+function mostrarSelecaoPerfil(){
+  var box=document.getElementById('senha-box');
+  var html='<div style="font-size:11px;font-weight:700;color:#9B9895;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Selecione seu perfil</div>';
+  analistas.forEach(function(a,i){
+    html+=
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'+
+        '<div class="perfil-item" data-idx="'+i+'" style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #E4E2DC;border-radius:10px;background:#F8F7F4;cursor:pointer;">'+
+          '<div style="width:34px;height:34px;border-radius:50%;background:#E05A1E;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">'+a.nome.charAt(0).toUpperCase()+'</div>'+
+          '<span style="font-size:14px;font-weight:600;color:#18171A;">'+a.nome+'</span>'+
+        '</div>'+
+        '<div class="perfil-edit" data-idx="'+i+'" style="width:34px;height:34px;border:1px solid #E4E2DC;border-radius:8px;background:#F8F7F4;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;" title="Editar nome">&#9998;</div>'+
+      '</div>';
+  });
+  html+=
+    '<div id="btn-criar-perfil" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px dashed #CCC9C2;border-radius:10px;cursor:pointer;color:#9B9895;margin-top:4px;">'+
+      '<div style="width:34px;height:34px;border-radius:50%;background:#F2F1ED;display:flex;align-items:center;justify-content:center;font-size:20px;">+</div>'+
+      '<span style="font-size:13px;">Criar novo perfil</span>'+
+    '</div>'+
+    '<button id="btn-voltar-senha" style="width:100%;margin-top:10px;padding:8px;border:1px solid #E4E2DC;border-radius:10px;background:transparent;font-size:12px;cursor:pointer;color:#9B9895;font-family:inherit;">Voltar</button>';
+  box.innerHTML=html;
+  box.querySelectorAll('.perfil-item').forEach(function(el){
+    el.addEventListener('click',function(){
+      var idx=parseInt(this.getAttribute('data-idx'));
+      if(analistas[idx]) selecionarPerfil(analistas[idx].id);
+    });
+  });
+  box.querySelectorAll('.perfil-edit').forEach(function(el){
+    el.addEventListener('click',function(){
+      var idx=parseInt(this.getAttribute('data-idx'));
+      if(analistas[idx]) mostrarEditarPerfil(idx);
+    });
+  });
+  var btnCriar=document.getElementById('btn-criar-perfil');
+  if(btnCriar) btnCriar.addEventListener('click', mostrarCriarPerfil);
+  var btnVoltar=document.getElementById('btn-voltar-senha');
+  if(btnVoltar) btnVoltar.addEventListener('click', voltarSenha);
+}
+function mostrarEditarPerfil(idx){
+  var a=analistas[idx];
+  if(!a) return;
+  var box=document.getElementById('senha-box');
+  box.innerHTML=
+    '<div style="font-size:11px;font-weight:700;color:#9B9895;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Editar perfil</div>'+
+    '<input id="edit-perfil-nome" value="'+a.nome+'" style="width:100%;padding:10px 12px;border:1px solid #E4E2DC;border-radius:10px;font-size:14px;background:#F8F7F4;font-family:inherit;margin-bottom:8px;"/>'+
+    '<div style="display:flex;gap:8px;">'+
+      '<button id="btn-cancel-edit" style="flex:1;padding:10px;border:1px solid #E4E2DC;border-radius:10px;background:transparent;font-size:13px;cursor:pointer;font-family:inherit;">Cancelar</button>'+
+      '<button id="btn-save-edit" style="flex:1;padding:10px;border:none;border-radius:10px;background:#E05A1E;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Salvar</button>'+
+    '</div>';
+  setTimeout(function(){ var el=document.getElementById('edit-perfil-nome'); if(el){el.focus();el.select();} },100);
+  document.getElementById('btn-cancel-edit').addEventListener('click', mostrarSelecaoPerfil);
+  document.getElementById('btn-save-edit').addEventListener('click', function(){
+    var inp=document.getElementById('edit-perfil-nome');
+    if(!inp||!inp.value.trim()) return;
+    analistas[idx].nome=inp.value.trim();
+    if(typeof save==='function') save();
+    mostrarSelecaoPerfil();
+    if(typeof toast==='function') toast('Perfil atualizado!');
+  });
+}
+
+function voltarSenha(){
+  esconderSenha();
+  mostrarSenha();
+}
+function mostrarCriarPerfil(){
+  var box=document.getElementById('senha-box');
+  box.innerHTML=
+    '<div style="font-size:11px;font-weight:700;color:#9B9895;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Novo perfil</div>'+
+    '<input id="novo-perfil-nome" placeholder="Nome do analista" style="width:100%;padding:10px 12px;border:1px solid #E4E2DC;border-radius:10px;font-size:14px;background:#F8F7F4;font-family:inherit;margin-bottom:8px;"/>'+
+    '<div style="display:flex;gap:8px;">'+
+      '<button id="btn-cancel-criar" style="flex:1;padding:10px;border:1px solid #E4E2DC;border-radius:10px;background:transparent;font-size:13px;cursor:pointer;font-family:inherit;">Cancelar</button>'+
+      '<button id="btn-confirmar-criar" style="flex:1;padding:10px;border:none;border-radius:10px;background:#E05A1E;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Criar</button>'+
+    '</div>';
+  setTimeout(function(){ var el=document.getElementById('novo-perfil-nome'); if(el) el.focus(); },100);
+  document.getElementById('btn-cancel-criar').addEventListener('click', mostrarSelecaoPerfil);
+  document.getElementById('btn-confirmar-criar').addEventListener('click', criarPerfil);
+}
+function criarPerfil(){
+  var inp=document.getElementById('novo-perfil-nome');
+  if(!inp||!inp.value.trim()){ return; }
+  var nome=inp.value.trim();
+  analistas.push({id:'ADM-'+Date.now(),nome:nome});
+  save();
+  mostrarSelecaoPerfil();
+  toast('Perfil "'+nome+'" criado!');
+}
+function selecionarPerfil(admId){
+  var a=analistas.find(function(x){ return x.id===admId; });
+  if(!a) return;
+  currentAnalista=a;
+  currentRole='adm';
+  currentTecnico=null;
+  try { 
+    sessionStorage.setItem('role_adm','1'); 
+    sessionStorage.setItem('analista_id',admId);
+  } catch(e){}
+  montarApp();
+}
+function confirmarSenha_UNUSED(){
   var s=document.getElementById('f-senha-inline');
   if(!s) return;
   if(s.value==='manutencao2024'){
@@ -238,15 +353,15 @@ function montarApp(){
     document.getElementById('fab-btn').style.display='flex';
     document.getElementById('stat-bar-wrap').innerHTML='<div class="stat-bar" id="stat-bar"></div>';
     document.getElementById('tabs-bar').innerHTML=
-      '<div class="tab active" onclick="setTab(this,'todos')">Todos</div>'+
-      '<div class="tab" onclick="setTab(this,'aberto')">Abertos</div>'+
-      '<div class="tab" onclick="setTab(this,'andamento')">Andamento</div>'+
-      '<div class="tab" onclick="setTab(this,'encerrado')">Encerrados</div>'+
-      '<div class="tab" onclick="setTab(this,'tecnicos')">Tecnicos</div>'+
-      '<div class="tab" onclick="setTab(this,'por-tec')">Por Tecnico</div>';
+      "<div class='tab active' onclick='setTab(this,\"pendentes\")'>Pendentes</div>"+
+      "<div class='tab' onclick='setTab(this,\"aberto\")'>Abertos</div>"+
+      "<div class='tab' onclick='setTab(this,\"andamento\")'>Andamento</div>"+
+      "<div class='tab' onclick='setTab(this,\"encerrado\")'>Encerrados</div>"+
+      "<div class='tab' onclick='setTab(this,\"tecnicos\")'>Tecnicos</div>"+
+      "<div class='tab' onclick='setTab(this,\"status-cfg\")'>Status</div>";
     document.getElementById('toolbar-bar').innerHTML=
       '<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()"/>';
-    if(typeof currentTab!=='undefined') currentTab='todos';
+    if(typeof currentTab!=='undefined') currentTab='pendentes';
   } else if(isTec&&(typeof currentTecnico!=='undefined')&&currentTecnico){
     var nome=currentTecnico.nome||'';
     var ini=nome.split(' ').slice(0,2).map(function(p){return p[0];}).join('').toUpperCase();
@@ -256,12 +371,13 @@ function montarApp(){
     document.getElementById('fab-btn').style.display='none';
     document.getElementById('stat-bar-wrap').innerHTML='';
     document.getElementById('tabs-bar').innerHTML=
-      '<div class="tab active" onclick="setTab(this,'meus')">Meus chamados</div>'+
-      '<div class="tab" onclick="setTab(this,'and-tec')">Em andamento</div>'+
-      '<div class="tab" onclick="setTab(this,'enc-tec')">Encerrados</div>';
+      "<div class='tab active' onclick='setTab(this,\"pend-tec\")'>Pendentes</div>"+
+      "<div class='tab' onclick='setTab(this,\"and-tec\")'>Em andamento</div>"+
+      "<div class='tab' onclick='setTab(this,\"enc-tec\")'>Encerrados</div>"+
+      "<div class='tab' onclick='setTab(this,\"nota\")'>Nota Fiscal</div>";
     document.getElementById('toolbar-bar').innerHTML=
       '<input id="search-input" placeholder="Buscar chamado..." oninput="render()"/>';
-    if(typeof currentTab!=='undefined') currentTab='meus';
+    if(typeof currentTab!=='undefined') currentTab='pend-tec';
   }
   if(typeof render==='function') render();
 }
@@ -346,16 +462,100 @@ function montarApp(){
 // ---
 // ESTADO
 // ---
+// ================================================================
+// SUPABASE CONFIG
+// ================================================================
+var SUPA_URL='https://cvezupejziehiobuligb.supabase.co';
+var SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZXp1cGVqemplaGlvYnVsaWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4NTA3MDgsImV4cCI6MjA2MzQyNjcwOH0.FkqigVBs3EZl9KJYIKb_7c9xZuiVhE2cK6z-v17FGE0';
+
+var SUPA_HDR={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+
+function supaGet(table,eq){
+  var url=SUPA_URL+'/rest/v1/'+table+'?select=*';
+  if(eq) url+='&'+eq;
+  return fetch(url,{headers:SUPA_HDR}).then(function(r){return r.json();});
+}
+function supaUpsert(table,obj){
+  return fetch(SUPA_URL+'/rest/v1/'+table,{
+    method:'POST',
+    headers:Object.assign({},SUPA_HDR,{'Prefer':'resolution=merge-duplicates'}),
+    body:JSON.stringify(obj)
+  });
+}
+function supaDelete(table,eq){
+  return fetch(SUPA_URL+'/rest/v1/'+table+'?'+eq,{
+    method:'DELETE',headers:SUPA_HDR
+  });
+}
+
+// ================================================================
+// ESTADO
+// ================================================================
 var chamados=[], tecnicos=[], nextId=1;
-var currentTab='todos', currentRole=null, currentTecnico=null;
+var currentTab='pendentes', currentRole=null, currentTecnico=null;
 var editTarget=null, tempFotos=[], prioSel='media';
 var _snap='';
+var _saving=false;
+var _saveQueue=false;
 
 // ---
 // PERSISTÊNCIA
 // ---
-function save(){try{localStorage.setItem('maint_v5',JSON.stringify({chamados,tecnicos,nextId}));}catch(e){}}
-function load(){try{var r=localStorage.getItem('maint_v5');if(r){var d=JSON.parse(r);chamados=d.chamados||[];tecnicos=d.tecnicos||[];nextId=d.nextId||1;}}catch(e){}}
+function save(){
+  // Salva no localStorage como cache local imediato
+  try{localStorage.setItem('maint_v5',JSON.stringify({chamados,tecnicos,nextId,statusDisponiveis,analistas}));}catch(e){}
+  // Salva no Supabase (com debounce para nao sobrecarregar)
+  if(_saving){ _saveQueue=true; return; }
+  _saving=true;
+  var payload={
+    chamados:chamados,
+    tecnicos:tecnicos,
+    nextId:nextId,
+    statusDisponiveis:statusDisponiveis,
+    analistas:analistas
+  };
+  supaUpsert('config',[{chave:'dados',valor:payload}])
+    .then(function(){
+      _saving=false;
+      if(_saveQueue){ _saveQueue=false; save(); }
+    })
+    .catch(function(e){
+      _saving=false;
+      console.warn('Erro ao salvar no Supabase:',e);
+    });
+}
+var statusDisponiveis=['Aguardando peca','Aguardando visita','Em atendimento','Aguardando aprovacao'];
+var analistas=[{id:'ADM-1',nome:'Analista 1'}];
+var currentAnalista=null;
+
+function aplicarDados(d){
+  if(!d) return;
+  chamados=d.chamados||[];
+  tecnicos=d.tecnicos||[];
+  nextId=d.nextId||1;
+  if(d.statusDisponiveis&&d.statusDisponiveis.length) statusDisponiveis=d.statusDisponiveis;
+  if(d.analistas&&d.analistas.length) analistas=d.analistas;
+}
+
+function load(){
+  // Carrega cache local imediatamente para nao travar a UI
+  try{
+    var r=localStorage.getItem('maint_v5');
+    if(r){ aplicarDados(JSON.parse(r)); }
+  }catch(e){}
+  // Depois sincroniza com Supabase
+  supaGet('config','chave=eq.dados')
+    .then(function(rows){
+      if(rows&&rows[0]&&rows[0].valor){
+        aplicarDados(rows[0].valor);
+        // Atualiza cache local
+        try{localStorage.setItem('maint_v5',JSON.stringify(rows[0].valor));}catch(e){}
+        // Re-renderiza se ja estiver logado
+        if(currentRole) render();
+      }
+    })
+    .catch(function(e){ console.warn('Supabase indisponivel, usando cache local:',e); });
+}
 
 // Migração da chave antiga
 function migrar(){
@@ -416,7 +616,8 @@ function entrarTec(id){
   montarApp();
 }
 function sair(){
-  try { sessionStorage.removeItem('role_adm'); } catch(e){}
+  try { sessionStorage.removeItem('role_adm'); sessionStorage.removeItem('analista_id'); } catch(e){}
+  currentAnalista=null;
   currentRole=null;currentTecnico=null;currentTab='todos';
   document.getElementById('pg-login').style.display='flex';
   document.getElementById('pg-app').style.display='none';
@@ -430,20 +631,23 @@ function montarApp(){
   document.getElementById('pg-app').style.display='block';
 
   if(currentRole==='adm'){
-    document.getElementById('tb-av').textContent='A';
+    var nomeAdm=currentAnalista?currentAnalista.nome:'Analista';
+    var inicialAdm=nomeAdm.charAt(0).toUpperCase();
+    document.getElementById('tb-av').textContent=inicialAdm;
     document.getElementById('tb-role').textContent='Analista · Acesso completo';
-    document.getElementById('tb-name').textContent='Chamados';
+    document.getElementById('tb-name').textContent=nomeAdm;
     document.getElementById('fab-btn').style.display='flex';
     document.getElementById('stat-bar-wrap').innerHTML='<div class="stat-bar" id="stat-bar"></div>';
     document.getElementById('tabs-bar').innerHTML=`
-      <div class="tab active" onclick="setTab(this,'todos')">Todos</div>
+      <div class="tab active" onclick="setTab(this,'pendentes')">Pendentes</div>
       <div class="tab" onclick="setTab(this,'aberto')">Abertos</div>
       <div class="tab" onclick="setTab(this,'andamento')">Andamento</div>
       <div class="tab" onclick="setTab(this,'encerrado')">Encerrados</div>
-      <div class="tab" onclick="setTab(this,'tecnicos')">Técnicos</div>`;
+      <div class="tab" onclick="setTab(this,'tecnicos')">Tecnicos</div>
+      <div class="tab" onclick="setTab(this,'status-cfg')">Status</div>`;
     document.getElementById('toolbar-bar').innerHTML=`
       <input id="search-input" placeholder="🔍  OS, equipamento, setor..." oninput="render()"/>`;
-    currentTab='todos';
+    currentTab='pendentes';
   } else {
     document.getElementById('tb-av').textContent=iniciais(currentTecnico.nome);
     document.getElementById('tb-role').textContent='Técnico';
@@ -451,12 +655,13 @@ function montarApp(){
     document.getElementById('fab-btn').style.display='none';
     document.getElementById('stat-bar-wrap').innerHTML='';
     document.getElementById('tabs-bar').innerHTML=`
-      <div class="tab active" onclick="setTab(this,'meus')">Meus chamados</div>
+      <div class="tab active" onclick="setTab(this,'pend-tec')">Pendentes</div>
       <div class="tab" onclick="setTab(this,'and-tec')">Em andamento</div>
-      <div class="tab" onclick="setTab(this,'enc-tec')">Encerrados</div>`;
+      <div class="tab" onclick="setTab(this,'enc-tec')">Encerrados</div>
+      <div class="tab" onclick="setTab(this,'nota')">Nota Fiscal</div>`;
     document.getElementById('toolbar-bar').innerHTML=`
       <input id="search-input" placeholder="🔍  Buscar chamado..." oninput="render()"/>`;
-    currentTab='meus';
+    currentTab='pend-tec';
   }
   render();
 }
@@ -468,50 +673,245 @@ function setTab(el,t){
   render();
 }
 
+function reprovarCotacao(chamadoId,tecId){
+  var ch=chamados.find(function(x){ return x.id===chamadoId; });
+  if(!ch||!ch.cotacao) return;
+  var ct=ch.cotacao.find(function(x){ return x.tecId===tecId; });
+  if(ct) ct.status='reprovado';
+  // Se todos reprovados, limpa cotacao
+  var pendentes=ch.cotacao.filter(function(x){ return x.status==='pendente'; });
+  if(!pendentes.length){
+    ch.nomeTecnico='';
+    ch.cotacao=null;
+  }
+  save();render();toast('Tecnico reprovado.');
+}
+
+// Helpers de status de chamado
+function isCotacao(ch){ return !!(ch.cotacao && ch.cotacao.length); }
+function isCotacaoTec(ch, tecId){
+  return ch.cotacao && ch.cotacao.some(function(ct){ return ct.tecId===tecId && ct.status==='pendente'; });
+}
+function isAtribuidoDireto(ch, tecId){ return ch.tecnicoId===tecId && !ch._cotacaoOrigem; }
+function isAprovadoCotacao(ch, tecId){ return ch.tecnicoId===tecId && ch._cotacaoOrigem; }
+// Chamado visivel para tecnico (atribuido direto ou em cotacao pendente)
+function visivelParaTec(ch, tecId){
+  // Atribuido diretamente a este tecnico
+  if(ch.tecnicoId===tecId && !isCotacao(ch)) return true;
+  // Em cotacao pendente para este tecnico
+  if(isCotacaoTec(ch, tecId)) return true;
+  // Aprovado da cotacao para este tecnico (cotacao foi limpa, tecnicoId definido)
+  if(ch.tecnicoId===tecId) return true;
+  return false;
+}
+// Pendente para tecnico = nao assumido ainda (aberto) ou em cotacao pendente
+function pendenteTec(ch, tecId){
+  // Em cotacao pendente para ele - apenas status aberto
+  if(isCotacaoTec(ch, tecId) && ch.status==='aberto') return true;
+  // Atribuido direto mas ainda nao assumido (status aberto) e nao em cotacao
+  if(ch.tecnicoId===tecId && ch.status==='aberto' && !isCotacao(ch)) return true;
+  return false;
+}
+
+function meusChamados(list){
+  if(currentRole==='adm' && currentAnalista){
+    return list.filter(function(x){
+      // Ve apenas chamados do seu perfil
+      // Chamados sem analistaId: aparecem para TODOS (compatibilidade com dados antigos)
+      // mas apenas enquanto houver menos de 2 analistas cadastrados
+      if(!x.analistaId){
+        // Se ha apenas 1 analista, todos os chamados sem ID sao dele
+        if(analistas.length<=1) return true;
+        // Se ha multiplos analistas, chamados sem ID sao "orfaos" - aparecem para todos
+        return true;
+      }
+      return x.analistaId===currentAnalista.id;
+    });
+  }
+  return list;
+}
+
 function getList(){
   var q=((document.getElementById('search-input')||{}).value||'').toLowerCase();
+  var filtroTec=((document.getElementById('filtro-tec')||{}).value||'');
   var list=[...chamados];
+
   if(currentRole==='tecnico'){
-    list=list.filter(c=>c.tecnicoId===currentTecnico.id);
-    if(currentTab==='and-tec') list=list.filter(c=>c.status==='andamento');
-    else if(currentTab==='enc-tec') list=list.filter(c=>c.status==='encerrado');
+    var tid=currentTecnico.id;
+    list=list.filter(function(x){ return visivelParaTec(x,tid); });
+    if(currentTab==='pend-tec'){
+      list=list.filter(function(x){ return pendenteTec(x,tid); });
+    } else if(currentTab==='and-tec'){
+      list=list.filter(function(x){ return x.tecnicoId===tid && x.status==='andamento'; });
+    } else if(currentTab==='enc-tec'){
+      list=list.filter(function(x){ return x.tecnicoId===tid && x.status==='encerrado'; });
+    } else if(currentTab==='nota'){
+      list=list.filter(function(x){ return x.tecnicoId===tid && x.status==='encerrado'; });
+    }
   } else {
-    if(currentTab==='aberto') list=list.filter(c=>c.status==='aberto');
-    else if(currentTab==='andamento') list=list.filter(c=>c.status==='andamento');
-    else if(currentTab==='encerrado') list=list.filter(c=>c.status==='encerrado');
+    // ADM: primeiro filtra pelo analista logado
+    list=meusChamados(list);
+    // Depois filtra pela aba
+    if(currentTab==='pendentes'){
+      list=list.filter(function(x){
+        if(x.status!=='aberto') return false;
+        if(isCotacao(x)) return true;
+        if(!x.tecnicoId) return true;
+        return false;
+      });
+    } else if(currentTab==='aberto'){
+      list=list.filter(function(x){
+        return x.status==='aberto' && x.tecnicoId && !isCotacao(x);
+      });
+    } else if(currentTab==='andamento'){
+      list=list.filter(function(x){
+        return x.status==='andamento' && !isCotacao(x);
+      });
+    } else if(currentTab==='encerrado'){
+      list=list.filter(function(x){ return x.status==='encerrado'; });
+    }
+    // Filtro por tecnico (opcional na toolbar)
+    if(filtroTec){
+      list=list.filter(function(x){ return x.tecnicoId===filtroTec; });
+    }
   }
-  if(q) list=list.filter(c=>
-    (c.id||'').toLowerCase().includes(q)||
-    (c.titulo||'').toLowerCase().includes(q)||
-    (c.unidade||'').toLowerCase().includes(q)||
-    (c.equipamento||'').toLowerCase().includes(q)||
-    (c.nomeTecnico||'').toLowerCase().includes(q)||
-    (c.patrimonio||'').toLowerCase().includes(q)
-  );
-  // Alta prioridade primeiro
+
+  if(q) list=list.filter(function(x){
+    return (x.id||'').toLowerCase().indexOf(q)>=0||
+      (x.titulo||'').toLowerCase().indexOf(q)>=0||
+      (x.unidade||'').toLowerCase().indexOf(q)>=0||
+      (x.equipamento||'').toLowerCase().indexOf(q)>=0||
+      (x.nomeTecnico||'').toLowerCase().indexOf(q)>=0||
+      (x.patrimonio||'').toLowerCase().indexOf(q)>=0;
+  });
   var po={alta:0,media:1,baixa:2};
-  list.sort((a,b)=>(po[a.prioridade||'media']||1)-(po[b.prioridade||'media']||1));
+  list.sort(function(a,b){ return (po[a.prioridade||'media']||1)-(po[b.prioridade||'media']||1); });
   return list;
 }
 
 // ---
 // RENDER
 // ---
+function mkBtn(cls,fn,args,txt){
+  var q="'";
+  var argsStr=args.map(function(a){return q+a+q;}).join(',');
+  return '<button class="'+cls+'" onclick="'+fn+'('+argsStr+')">'+txt+'</button>';
+}
+// Icones padrao dos botoes
+var ICONS={
+  ver:'Ver detalhes',
+  atribuir:'👷 Atribuir',
+  trocar:'🔄 Trocar',
+  whatsapp:'📱 WhatsApp',
+  assumir:'✅ Assumir',
+  encerrar:'🔒 Encerrar',
+  propor:'📋 Ver e propor',
+  aguardando:'⏳ Aguardando',
+  aprovar:'✓',
+  reprovar:'✗',
+  reabrir:'↩ Reabrir'
+};
+
+function reivindicarOrfaos(){
+  if(!currentAnalista) return;
+  var count=0;
+  chamados.forEach(function(ch){
+    if(!ch.analistaId){
+      ch.analistaId=currentAnalista.id;
+      ch.analistaNome=currentAnalista.nome;
+      count++;
+    }
+  });
+  save();render();
+  toast('✅ '+count+' chamado'+(count>1?'s atribuídos':'s atribuído')+' ao perfil '+currentAnalista.nome+'!');
+}
+
+function gerarBtnVer(id){
+  return mkBtn('btn','openModal',['ver',id],ICONS.ver);
+}
+function gerarBtnTec(ch,isTec,tecPendente){
+  if(!isTec||ch.status==='encerrado') return '';
+  // Verifica se ja enviou proposta nesta cotacao
+  if(tecPendente){
+    var minhaCot=ch.cotacao&&ch.cotacao.find(function(ct){return ct.tecId===currentTecnico.id;});
+    if(minhaCot&&minhaCot.proposta){
+      return '<span style="font-size:11px;color:var(--amber);font-weight:600;padding:6px 10px;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:var(--rxs);">'+ICONS.aguardando+' Aguardando aprovacao</span>';
+    }
+    return mkBtn('btn primary','openModal',['atualizar',ch.id],ICONS.propor);
+  }
+  if(ch.tecnicoId===currentTecnico.id){
+    if(ch.status==='aberto') return mkBtn('btn primary','openModal',['atualizar',ch.id],ICONS.assumir);
+    return mkBtn('btn success','openModal',['atualizar',ch.id],ICONS.encerrar);
+  }
+  return '';
+}
+function gerarBtnAdm(ch,isAdm,emCot){
+  if(!isAdm||ch.status==='encerrado') return '';
+  if(ch.tecnicoId&&!emCot) return mkBtn('btn ghost','openModal',['atrib',ch.id],ICONS.trocar);
+  return mkBtn('btn ghost','openModal',['atrib',ch.id],ICONS.atribuir);
+}
+function gerarBtnWhats(id){
+  return mkBtn('btn whats','enviarWhats',[id],ICONS.whatsapp);
+}
+
 function render(){
   if(currentTab==='tecnicos'){renderTecnicos();return;}
-  if(currentTab==='por-tec'){renderPorTecnico();return;}
+  if(currentTab==='status-cfg'){renderStatusCfg();return;}
+  if(currentTab==='nota'){renderNotaFiscal();return;}
 
-  // Stats bar
+  // Stats bar (somente ADM)
   var sb=document.getElementById('stat-bar');
   if(sb){
-    sb.innerHTML=`
-      <div class="stat"><div class="stat-num or">${chamados.filter(c=>c.status==='aberto').length}</div><div class="stat-label">Abertos</div></div>
-      <div class="stat"><div class="stat-num bl">${chamados.filter(c=>c.status==='andamento').length}</div><div class="stat-label">Andamento</div></div>
-      <div class="stat"><div class="stat-num gr">${chamados.filter(c=>c.status==='encerrado').length}</div><div class="stat-label">Encerrados</div></div>`;
+    var meus=meusChamados(chamados);
+    var nPend=meus.filter(function(x){ return x.status==='aberto'&&(isCotacao(x)||!x.tecnicoId); }).length;
+    var nAberto=meus.filter(function(x){ return x.status==='aberto'&&x.tecnicoId&&!isCotacao(x); }).length;
+    var nAndamento=meus.filter(function(x){ return x.status==='andamento'&&!isCotacao(x); }).length;
+    var nEncerrado=meus.filter(function(x){ return x.status==='encerrado'; }).length;
+    sb.innerHTML=
+      '<div class="stat"><div class="stat-num or">'+nPend+'</div><div class="stat-label">Pendentes</div></div>'+
+      '<div class="stat"><div class="stat-num" style="color:#7C3AED;">'+nAberto+'</div><div class="stat-label">Abertos</div></div>'+
+      '<div class="stat"><div class="stat-num bl">'+nAndamento+'</div><div class="stat-label">Andamento</div></div>'+
+      '<div class="stat"><div class="stat-num gr">'+nEncerrado+'</div><div class="stat-label">Encerrados</div></div>';
   }
 
-  var ab=chamados.filter(c=>c.status!=='encerrado').length;
-  document.getElementById('counter').textContent=ab;
+  // Counter = numero da aba atual
+  var lista=getList();
+  document.getElementById('counter').textContent=lista.length;
+
+  // Toolbar com filtro por tecnico - reconstroi apenas quando necessario
+  var toolbarEl=document.getElementById('toolbar-bar');
+  var showFiltroTec=currentRole==='adm'&&['pendentes','aberto','andamento','encerrado'].indexOf(currentTab)>=0;
+  var temFiltroTec=!!toolbarEl.querySelector('#filtro-tec');
+  if(showFiltroTec&&!temFiltroTec){
+    var opsTec=tecnicos.map(function(t){
+      return '<option value="'+t.id+'">'+t.nome.split(' ').slice(0,2).join(' ')+'</option>';
+    }).join('');
+    toolbarEl.innerHTML=
+      '<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);"/>'+
+      '<select id="filtro-tec" onchange="render()" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);max-width:180px;font-family:var(--font);">'+
+      '<option value="">Todos tecnicos</option>'+opsTec+
+      '</select>';
+  } else if(!showFiltroTec&&(temFiltroTec||!toolbarEl.querySelector('#search-input'))){
+    toolbarEl.innerHTML='<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);"/>';
+  }
+
+  // Aviso de chamados orfaos - aparece acima dos cards na aba Pendentes
+  var elContent=document.getElementById('list-content');
+  var avisoEl=document.getElementById('aviso-orfaos');
+  if(currentRole==='adm'&&currentAnalista&&analistas.length>1&&currentTab==='pendentes'){
+    var orfaos=chamados.filter(function(x){ return !x.analistaId&&x.status==='aberto'; });
+    if(orfaos.length>0){
+      if(!avisoEl){
+        avisoEl=document.createElement('div');
+        avisoEl.id='aviso-orfaos';
+        elContent.parentNode.insertBefore(avisoEl,elContent);
+      }
+      avisoEl.style.cssText='background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:var(--rxs);padding:12px 16px;margin:0 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;';
+      avisoEl.innerHTML=
+        '<span style="font-size:13px;color:var(--amber);"><strong>'+orfaos.length+' chamado'+(orfaos.length>1?'s':'')+'</strong> sem analista — importados antes dos perfis.</span>'+
+        '<button onclick="reivindicarOrfaos()" style="background:var(--amber);color:white;border:none;border-radius:var(--rxs);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);">Atribuir a mim</button>';
+    } else if(avisoEl){ avisoEl.remove(); }
+  } else if(avisoEl){ avisoEl.remove(); }
 
   var list=getList();
   var el=document.getElementById('list-content');
@@ -524,47 +924,227 @@ function render(){
     return;
   }
 
-  el.innerHTML=list.map(c=>{
+  el.innerHTML=list.map(function(c){
     var prio=c.prioridade||'media';
     var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
     var isAdm=currentRole==='adm';
     var isTec=currentRole==='tecnico';
-    return `<div class="card">
-      <div class="card-stripe ${c.status}"></div>
-      <div class="card-body">
-        <div class="card-top">
-          <span class="card-os"><span class="prio-dot ${prio}"></span>${c.id}</span>
-          <span class="badge ${c.status}">${STATUS[c.status]}</span>
-        </div>
-        <div class="card-title">${trunc(titulo,90)}</div>
-        <div class="card-fields">
-          ${c.equipamento?`<div class="card-field"><span class="cf-label">Equipamento</span><span class="cf-value">${trunc(c.equipamento,50)}</span></div>`:''}
-          ${c.patrimonio?`<div class="card-field"><span class="cf-label">Patrimônio</span><span class="cf-value">${c.patrimonio}</span></div>`:''}
-          ${c.nSerie?`<div class="card-field"><span class="cf-label">Nº de Série</span><span class="cf-value">${c.nSerie}</span></div>`:''}
-          ${c.unidade?`<div class="card-field"><span class="cf-label">Setor</span><span class="cf-value">${trunc(c.unidade,50)}</span></div>`:''}
-          ${c.nomeTecnico?`<div class="card-field"><span class="cf-label">Técnico</span><span class="cf-value">${trunc(c.nomeTecnico,30)}</span></div>`:''}
-          ${c.atendimento?`<div class="card-field"><span class="cf-label">Atendimento</span><span class="cf-value">${c.atendimento}</span></div>`:''}
-        </div>
-        <div class="card-chips">
-          ${c.abertura?`<span class="chip">📅 ${c.abertura}</span>`:''}
-          ${!c.nomeTecnico&&isAdm?`<span class="chip warn">Sem técnico</span>`:''}
-          ${c.valor?`<span class="chip money">💰 ${fmtValor(c.valor)}</span>`:''}
-          ${c.prioridade&&c.prioridade!=='media'?`<span class="chip">${PRIO[c.prioridade]}</span>`:''}
-        </div>
-        <div class="card-footer">
-          <button class="btn" onclick="openModal('ver','${c.id}')">Ver detalhes</button>
-          ${isAdm&&c.status!=='encerrado'?`<button class="btn ghost" onclick="openModal('atrib','${c.id}')" title="Atribuir técnico">👷</button>`:''}
-          ${isAdm&&c.nomeTecnico&&c.status!=='encerrado'?`<button class="btn whats" onclick="enviarWhats('${c.id}')">WhatsApp</button>`:''}
-          ${isTec&&c.status!=='encerrado'?`<button class="btn ${c.status==='aberto'?'primary':'success'}" onclick="openModal('atualizar','${c.id}')">${c.status==='aberto'?'✅ Assumir':'🔒 Encerrar'}</button>`:''}
-        </div>
-      </div>
-    </div>`;
+    var emCot=isCotacao(c);
+    var tecPendente=isTec&&isCotacaoTec(c,currentTecnico.id);
+    // Botao do tecnico: se em cotacao pendente = "Ver proposta", se atribuido = assumir/encerrar
+    var btnTec=gerarBtnTec(c,isTec,tecPendente);
+    var btnAdm=gerarBtnAdm(c,isAdm,emCot);
+    var btnWhats=isAdm&&c.nomeTecnico&&c.status!=='encerrado'&&!emCot?gerarBtnWhats(c.id):'';
+    var chipCot=emCot?'<span class="chip" style="background:#EDE9FE;color:#7C3AED;border-color:#C4B5FD;">Em cotacao</span>':'';
+    var chipSemTec=!c.nomeTecnico&&isAdm&&!emCot?'<span class="chip warn">Sem tecnico</span>':'';
+    var chipAnalista=''; // cada analista ve so os seus, chip desnecessario
+    return '<div class="card">'+
+      '<div class="card-stripe '+(emCot?'cotacao':c.status)+'"></div>'+
+      '<div class="card-body">'+
+        '<div class="card-top">'+
+          '<span class="card-os"><span class="prio-dot '+prio+'"></span>'+c.id+'</span>'+
+          '<span class="badge '+(emCot?'cotacao':c.status)+'">'+(emCot?'Em cotacao':STATUS[c.status])+'</span>'+
+        '</div>'+
+        '<div class="card-title">'+trunc(titulo,90)+'</div>'+
+        '<div class="card-fields">'+
+          (c.equipamento?'<div class="card-field"><span class="cf-label">Equipamento</span><span class="cf-value">'+trunc(c.equipamento,50)+'</span></div>':'')+
+          (c.patrimonio?'<div class="card-field"><span class="cf-label">Patrimonio</span><span class="cf-value">'+c.patrimonio+'</span></div>':'')+
+          (c.nSerie?'<div class="card-field"><span class="cf-label">N de Serie</span><span class="cf-value">'+c.nSerie+'</span></div>':'')+
+          (c.unidade?'<div class="card-field"><span class="cf-label">Setor</span><span class="cf-value">'+trunc(c.unidade,50)+'</span></div>':'')+
+          (c.nomeTecnico&&!emCot?'<div class="card-field"><span class="cf-label">Tecnico</span><span class="cf-value">'+trunc(c.nomeTecnico,30)+'</span></div>':'')+
+          (c.atendimento?'<div class="card-field"><span class="cf-label">Atendimento</span><span class="cf-value">'+c.atendimento+'</span></div>':'')+
+        '</div>'+
+        '<div class="card-chips">'+
+          (c.abertura?'<span class="chip">'+c.abertura+'</span>':'')+
+          chipAnalista+chipSemTec+chipCot+
+          (!emCot&&c.valor?'<span class="chip money">'+fmtValor(c.valor)+'</span>':'')+
+          (c.dataConserto&&c.status==='encerrado'?'<span class="chip" style="background:var(--green-bg);color:var(--green);border-color:var(--green-bd);">🔧 '+fmtData(c.dataConserto)+'</span>':'')+
+          (c.prioridade&&c.prioridade!=='media'?'<span class="chip">'+PRIO[c.prioridade]+'</span>':'')+
+          (c.statusChamado?'<span class="chip" style="background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bd);">'+c.statusChamado+'</span>':'')+
+        '</div>'+
+        '<div class="card-footer">'+
+          gerarBtnVer(c.id)+
+          btnAdm+btnWhats+btnTec+
+        '</div>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
 
 // ---
 // TECNICOS
 // ---
+function renderStatusCfg(){
+  document.getElementById('counter').textContent=statusDisponiveis.length;
+  var sb=document.getElementById('stat-bar');
+  if(sb) sb.innerHTML='';
+  var el=document.getElementById('list-content');
+  // Secao de analistas no topo
+  var htmlAnalistas='<div class="detail-block full-width" style="margin-bottom:14px;">'+
+    '<div class="sec">Perfis de analistas</div>'+
+    '<p style="font-size:12px;color:var(--text3);margin-bottom:10px;">Gerencie os perfis que aparecem na tela de login.</p>'+
+    analistas.map(function(a,i){
+      return '<div class="detail-row">'+
+        '<span class="cf-value" style="display:flex;align-items:center;gap:8px;">'+
+          '<div style="width:28px;height:28px;border-radius:50%;background:var(--or);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">'+a.nome.charAt(0).toUpperCase()+'</div>'+
+          a.nome+
+        '</span>'+
+        '<button class="btn-editar-analista btn ghost" data-idx="'+i+'" style="padding:4px 8px;font-size:11px;flex:0;">✏ Editar</button>'+
+      (analistas.length>1?'<button class="btn-remover-analista btn ghost" data-idx="'+i+'" style="padding:4px 8px;font-size:11px;flex:0;">Remover</button>':'')+
+      '</div>';
+    }).join('')+
+    '<div style="display:flex;gap:8px;margin-top:10px;">'+
+      '<input id="novo-analista-input" placeholder="Nome do novo analista" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);"/>'+
+      '<button class="btn primary" style="flex:0;padding:9px 14px;" onclick="adicionarAnalista()">+ Adicionar</button>'+
+    '</div>'+
+  '</div>';
+  var html='<div class="detail-block full-width">'+
+    '<div class="sec">Status customizados para chamados</div>'+
+    '<p style="font-size:12px;color:var(--text3);margin-bottom:12px;">Estes status aparecem como opcao para os tecnicos selecionarem durante o atendimento.</p>'+
+    statusDisponiveis.map(function(s,i){
+      return '<div class="detail-row">'+
+        '<span class="cf-value">'+s+'</span>'+
+        '<button class="btn ghost" style="padding:4px 10px;font-size:11px;flex:0;" onclick="removerStatus('+i+')">Remover</button>'+
+        '</div>';
+    }).join('')+
+    '</div>'+
+    '<div class="detail-block full-width">'+
+    '<div class="sec">Adicionar novo status</div>'+
+    '<div style="display:flex;gap:8px;">'+
+    '<input id="novo-status-input" placeholder="Ex: Aguardando peca importada" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface2);"/>'+
+    '<button class="btn primary" style="flex:0;padding:10px 16px;" onclick="adicionarStatus()">Adicionar</button>'+
+    '</div></div>';
+  el.innerHTML=htmlAnalistas+html;
+  el.querySelectorAll('.btn-editar-analista').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var idx=parseInt(this.getAttribute('data-idx'));
+      editarAnalistaInline(idx);
+    });
+  });
+  el.querySelectorAll('.btn-remover-analista').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var idx=parseInt(this.getAttribute('data-idx'));
+      excluirAnalista(idx);
+    });
+  });
+}
+
+function editarAnalistaInline(idx){
+  var a=analistas[idx];
+  if(!a) return;
+  var novoNome=prompt('Novo nome para "'+a.nome+'":',a.nome);
+  if(!novoNome||!novoNome.trim()) return;
+  analistas[idx].nome=novoNome.trim();
+  save();renderStatusCfg();toast('Perfil atualizado!');
+}
+
+function adicionarAnalista(){
+  var inp=document.getElementById('novo-analista-input');
+  if(!inp||!inp.value.trim()) return;
+  analistas.push({id:'ADM-'+Date.now(),nome:inp.value.trim()});
+  save();renderStatusCfg();toast('Analista adicionado!');
+}
+
+function excluirAnalista(idx){
+  if(!confirm('Remover este analista?')) return;
+  analistas.splice(idx,1);
+  save();renderStatusCfg();toast('Analista removido!');
+}
+
+function renderNotaFiscal(){
+  var sb=document.getElementById('stat-bar');
+  if(sb) sb.innerHTML='';
+  var el=document.getElementById('list-content');
+  var encerrados=chamados.filter(function(x){
+    return x.tecnicoId===currentTecnico.id && x.status==='encerrado';
+  });
+  if(!encerrados.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📄</div><h3>Nenhum chamado encerrado</h3><p>Os chamados encerrados aparecem aqui para gerar nota fiscal.</p></div>';
+    return;
+  }
+  // Estado de seleção
+  if(!window._notaSel) window._notaSel={};
+  var html='<div class="detail-block full-width">'+
+    '<div class="sec">Selecione os chamados para nota fiscal</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:10px;">'+
+    '<button class="btn" style="font-size:11px;padding:6px 10px;" onclick="notaSelectAll(true)">Selecionar todos</button>'+
+    '<button class="btn" style="font-size:11px;padding:6px 10px;" onclick="notaSelectAll(false)">Desmarcar todos</button>'+
+    '<button class="btn primary" style="font-size:11px;padding:6px 10px;" onclick="gerarNota()">Gerar e copiar</button>'+
+    '</div>'+
+    encerrados.map(function(ch){
+      var sel=window._notaSel[ch.id]||false;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:6px;cursor:pointer;border:1px solid '+(sel?'var(--or)':'var(--border)')+'" onclick="notaToggle(\''+ch.id+'\')">'+
+        '<input type="checkbox" '+(sel?'checked':'')+' style="width:16px;height:16px;" onclick="notaToggle(\''+ch.id+'\');event.stopPropagation()"/>'+
+        '<div style="flex:1;font-size:12px;">'+
+        '<div><strong>'+ch.id+'</strong> - '+(ch.titulo||'').substring(0,50)+'</div>'+
+        '<div style="color:var(--text3);">'+(ch.equipamento||'')+' | '+(ch.unidade||'')+'</div>'+
+        (ch.valor?'<div style="color:var(--green);font-weight:600;">R$ '+Number(ch.valor).toFixed(2).replace('.',',')+'</div>':'<div style="color:var(--text3);">Sem valor</div>')+
+        '</div></div>';
+    }).join('')+
+    '</div>';
+  el.innerHTML=html;
+}
+
+function notaToggle(id){
+  if(!window._notaSel) window._notaSel={};
+  window._notaSel[id]=!window._notaSel[id];
+  renderNotaFiscal();
+}
+
+function notaSelectAll(sel){
+  if(!window._notaSel) window._notaSel={};
+  chamados.filter(function(x){
+    return x.tecnicoId===currentTecnico.id && x.status==='encerrado';
+  }).forEach(function(x){ window._notaSel[x.id]=sel; });
+  renderNotaFiscal();
+}
+
+function gerarNota(){
+  if(!window._notaSel) return;
+  var selecionados=chamados.filter(function(x){
+    return x.tecnicoId===currentTecnico.id && x.status==='encerrado' && window._notaSel[x.id];
+  });
+  if(!selecionados.length){ toast('Selecione ao menos um chamado!'); return; }
+  var total=0;
+  var txt='RELATORIO DE SERVICOS - '+currentTecnico.nome+'\n';
+  txt+='==========================================\n\n';
+  selecionados.forEach(function(ch,i){
+    txt+=(i+1)+'. OS: '+ch.id+'\n';
+    if(ch.equipamento) txt+='   Equipamento: '+ch.equipamento+'\n';
+    if(ch.unidade) txt+='   Setor: '+ch.unidade+'\n';
+    if(ch.nSerie) txt+='   N de Serie: '+ch.nSerie+'\n';
+    if(ch.patrimonio) txt+='   Patrimonio: '+ch.patrimonio+'\n';
+    if(ch.dataConserto) txt+='   Data conserto: '+fmtData(ch.dataConserto)+'\n';
+    if(ch.solucao) txt+='   Servico: '+ch.solucao+'\n';
+    var val=ch.valor?Number(ch.valor):0;
+    txt+='   Valor: R$ '+val.toFixed(2).replace('.',',')+'\n\n';
+    total+=val;
+  });
+  txt+='==========================================\n';
+  txt+='TOTAL: R$ '+total.toFixed(2).replace('.',',')+'\n';
+  navigator.clipboard.writeText(txt).then(function(){
+    toast('Nota copiada! Cole na nota fiscal.');
+  }).catch(function(){
+    var ta=document.createElement('textarea');
+    ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');ta.remove();
+    toast('Nota copiada! Cole na nota fiscal.');
+  });
+}
+
+function adicionarStatus(){
+  var inp=document.getElementById('novo-status-input');
+  if(!inp||!inp.value.trim()) return;
+  statusDisponiveis.push(inp.value.trim());
+  save();renderStatusCfg();toast('Status adicionado!');
+}
+
+function removerStatus(i){
+  statusDisponiveis.splice(i,1);
+  save();renderStatusCfg();toast('Status removido!');
+}
+
 function renderPorTecnico(){
   document.getElementById('counter').textContent=chamados.length;
   var sb=document.getElementById('stat-bar');
@@ -584,7 +1164,7 @@ function renderPorTecnico(){
       '<div class="tec-av">'+ini+'</div>'+
       '<div class="tec-info"><div class="tec-name">'+tec.nome+'</div>'+
       '<div class="tec-sub">'+chs.length+' chamado'+(chs.length!==1?'s':'')+'</div></div>'+
-      '<button class="btn primary" style="padding:6px 12px;font-size:11px;flex:0;" onclick="copiarChamadosTec(''+tec.id+'')">Copiar</button>'+
+      '<button class="btn primary" style="padding:6px 12px;font-size:11px;flex:0;" onclick="copiarChamadosTec(\'' + tec.id + '\')">Copiar</button>'+
       '</div>';
     chs.forEach(function(ch){
       html+='<div style="width:100%;background:var(--surface2);border-radius:8px;padding:8px 10px;font-size:12px;">'+
@@ -593,9 +1173,9 @@ function renderPorTecnico(){
         (ch.equipamento?'<br>Equip: '+ch.equipamento:'')+
         (ch.unidade?'  |  Setor: '+ch.unidade:'')+
         '<div style="display:flex;gap:4px;margin-top:6px;">'+
-        '<button class="btn" style="padding:4px 8px;font-size:11px;" onclick="openModal('ver',''+ch.id+'')">Ver</button>'+
-        (ch.status!=='encerrado'?'<button class="btn ghost" style="padding:4px 8px;font-size:11px;" onclick="openModal('atrib',''+ch.id+'')">Atribuir</button>':'')+
-        (ch.status==='encerrado'?'<button class="btn" style="padding:4px 8px;font-size:11px;background:var(--amber-bg);color:var(--amber);" onclick="reabrirChamado(''+ch.id+'')">Reabrir</button>':'')+
+        mkBtn('btn','openModal',[ch.id],'Ver')+
+        (ch.status!=='encerrado'?mkBtn('btn ghost','openModal',['atrib',ch.id],'Atribuir'):'')+
+        (ch.status==='encerrado'?mkBtn('btn-reabrir','reabrirChamado',[ch.id],'Reabrir'):'')+
         '</div></div>';
     });
     html+='</div>';
@@ -658,6 +1238,38 @@ function enviarWhats(id){
 // ---
 // MODAIS
 // ---
+function renderCotacaoBlock(ch){
+  if(!ch.cotacao||!ch.cotacao.length) return '';
+  if(currentRole==='tecnico'&&currentTecnico){
+    var minhaCot=ch.cotacao.find(function(ct){ return ct.tecId===currentTecnico.id; });
+    var proposta=minhaCot&&minhaCot.proposta;
+    return '<div class="detail-block" style="background:var(--amber-bg);border-color:var(--amber-bd);">'+
+      '<div class="sec" style="color:var(--amber);">Aguardando aprovacao</div>'+
+      '<p style="font-size:13px;color:var(--amber);line-height:1.5;">Sua proposta foi enviada. Voce sera notificado quando for aprovado.</p>'+
+      (proposta&&proposta.valor?'<p style="font-size:12px;color:var(--amber);margin-top:4px;">Seu valor: R$ '+Number(proposta.valor).toFixed(2).replace('.',',')+'</p>':'')+
+      '</div>';
+  }
+  var pendentes=ch.cotacao.filter(function(ct){ return ct.status==='pendente'; });
+  if(!pendentes.length) return '';
+  return '<div class="detail-block">'+
+    '<div class="sec">Cotacoes pendentes</div>'+
+    pendentes.map(function(ct){
+      var prop=ct.proposta;
+      return '<div class="detail-row" style="padding:8px 0;">'+
+        '<div style="flex:1;">'+
+          '<span style="font-weight:600;font-size:13px;">'+ct.tecNome.split(' ').slice(0,2).join(' ')+'</span>'+
+          (prop?'<span style="font-size:11px;color:var(--text3);margin-left:8px;">R$ '+(prop.valor?Number(prop.valor).toFixed(2).replace('.',','):'--')+(prop.atendimento?' | '+prop.atendimento:'')+'</span>':
+            '<span style="font-size:11px;color:var(--text3);margin-left:8px;">Aguardando proposta</span>')+
+        '</div>'+
+        '<span style="display:flex;gap:6px;">'+
+          mkBtn('btn-aprovar','aprovarCotacao',[ch.id,ct.tecId],ICONS.aprovar)+
+          mkBtn('btn-reprovar','reprovarCotacao',[ch.id,ct.tecId],ICONS.reprovar)+
+        '</span>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+
 function openModal(tipo,id){
   editTarget=id?(chamados.find(c=>c.id===id)||tecnicos.find(t=>t.id===id)):null;
   tempFotos=[];
@@ -734,12 +1346,16 @@ function openModal(tipo,id){
       </div>
       <div class="detail-block">
         <div class="sec">Responsável e datas</div>
+        ${c.analistaNome?`<div class="detail-row"><span class="dl">Analista</span><span class="dv" style="color:var(--or);">${c.analistaNome}</span></div>`:''}
         <div class="detail-row"><span class="dl">Técnico</span><span class="dv">${c.nomeTecnico||'Não atribuído'}</span></div>
         ${c.requisitante?`<div class="detail-row"><span class="dl">Requisitante</span><span class="dv">${c.requisitante}</span></div>`:''}
+        ${renderCotacaoBlock(c)}
         ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
+        ${c.statusChamado?`<div class="detail-row"><span class="dl">Status atual</span><span class="dv" style="color:var(--blue);">${c.statusChamado}</span></div>`:''}
         ${c.atendimento?`<div class="detail-row"><span class="dl">Atendimento</span><span class="dv">${c.atendimento}</span></div>`:''}
         ${c.valor?`<div class="detail-row"><span class="dl">Valor</span><span class="dv">${fmtValor(c.valor)}</span></div>`:''}
         ${c.encerramento?`<div class="detail-row"><span class="dl">Encerrado em</span><span class="dv">${c.encerramento}</span></div>`:''}
+        ${c.dataConserto?`<div class="detail-row"><span class="dl">Data conserto</span><span class="dv" style="color:var(--green);font-weight:600;">${fmtData(c.dataConserto)}</span></div>`:''}
       </div>
       ${c.solucao||c.obs?`
       <div class="detail-block">
@@ -764,10 +1380,26 @@ function openModal(tipo,id){
     html+=`
       <div class="modal-header"><span class="modal-title">Atribuir técnico</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div class="info-box">${trunc(tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS),65)}<br><span style="font-size:11px;opacity:.8;">${c.id}${c.unidade?' · '+c.unidade:''}</span></div>
-      <div class="field"><label>Técnico responsável</label><select id="f-atrib-tec"><option value="">- Sem atribuição -</option>${opsTec}</select></div>
-      <div style="display:flex;gap:8px;">
+      <div class="field">
+        <label>Atribuir a um técnico</label>
+        <select id="f-atrib-tec"><option value="">-- Sem atribuição --</option>${opsTec}</select>
+      </div>
+      <div class="field" style="background:var(--or-bg);border:1px solid var(--or-border);border-radius:var(--rxs);padding:12px;">
+        <label style="color:var(--or2);margin-bottom:6px;display:block;">Ou enviar para cotação</label>
+        <p style="font-size:11px;color:var(--or2);margin-bottom:10px;">Selecione múltiplos técnicos. O chamado aparece para todos e você aprova o melhor.</p>
+        <div id="cotacao-lista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+          ${tecnicos.map(t=>`
+          <div class="cotacao-item" data-id="${t.id}" onclick="toggleCotacao(this)"
+            style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;border:2px solid var(--border);background:white;cursor:pointer;transition:all .15s;">
+            <div class="cotacao-check-box" style="width:20px;height:20px;border-radius:4px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:all .15s;"></div>
+            <span style="font-size:13px;font-weight:500;">${t.nome}</span>
+          </div>`).join('')}
+        </div>
+        <button class="btn" style="background:var(--or);color:white;border-color:var(--or);width:100%;padding:10px;" onclick="salvarCotacao('${c.id}')">Enviar para cotação</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn" onclick="closeModal()">Cancelar</button>
-        <button class="btn primary" onclick="salvarAtrib()">Confirmar</button>
+        <button class="btn primary" onclick="salvarAtrib()">Atribuir direto</button>
       </div>`;
   }
 
@@ -777,7 +1409,8 @@ function openModal(tipo,id){
     var isEnc=c.status==='andamento';
     var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
     html+=`
-      <div class="modal-header"><span class="modal-title">${isEnc?'Encerrar chamado':'Assumir chamado'}</span><button class="close-btn" onclick="closeModal()">X</button></div>
+      <div class="modal-header"><span class="modal-title">${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'Enviar proposta':(isEnc?'Encerrar chamado':'Assumir chamado')}</span><button class="close-btn" onclick="closeModal()">X</button></div>
+      ${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'<div class="info-box" style="background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber);">Este chamado esta em cotacao. Informe seus dados e envie sua proposta. Voce sera avisado se for aprovado.</div>':''}
       <div class="info-box"><strong>${trunc(titulo,80)}</strong><br><span style="font-size:11px;opacity:.8;">${c.id}</span></div>
       <div class="detail-block" style="margin-bottom:14px;">
         <div class="sec">Informações do equipamento</div>
@@ -786,10 +1419,20 @@ function openModal(tipo,id){
         ${c.nSerie?`<div class="detail-row"><span class="dl">Nº de Série</span><span class="dv">${c.nSerie}</span></div>`:''}
         ${c.unidade?`<div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade}</span></div>`:''}
         ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
+        ${c.statusChamado?`<div class="detail-row"><span class="dl">Status atual</span><span class="dv" style="color:var(--blue);">${c.statusChamado}</span></div>`:''}
       </div>
       ${!isEnc?`<div class="field"><label>Data de atendimento</label><input id="f-atend" type="date" value="${new Date().toISOString().split('T')[0]}"/></div>`:''}
-      <div class="field"><label>Valor do serviço (R$)</label><input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${c.valor||''}"/></div>
+      <div class="field"><label>Valor do serviço (R$)</label><input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'':c.valor||''}"/></div>
+      <div class="field">
+        <label>Status atual</label>
+        <select id="f-status-chamado">
+          <option value="">-- Selecione --</option>
+          ${statusDisponiveis.map(s=>`<option value="${s}" ${c.statusChamado===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Observação / Atualização</label><textarea id="f-obs-and" placeholder="Atualize o status do atendimento...">${c.obs||''}</textarea></div>
       ${isEnc?`
+        <div class="field"><label>Data do conserto</label><input id="f-data-conserto" type="date" value="${c.dataConserto||new Date().toISOString().split('T')[0]}"/><div class="field-hint">Dia em que o equipamento foi efetivamente consertado</div></div>
         <div class="field"><label>Solução aplicada</label><textarea id="f-solucao" placeholder="Descreva a solução aplicada...">${c.solucao||''}</textarea></div>
         <div class="field"><label>Observações adicionais</label><textarea id="f-obs" placeholder="Informações extras...">${c.obs||''}</textarea></div>
         <div class="field">
@@ -800,7 +1443,7 @@ function openModal(tipo,id){
             <input type="file" accept="image/*" multiple capture="environment" style="display:none;" onchange="addFotos(event)"/>
           </label>
         </div>`:''}
-      <button class="btn ${isEnc?'success':'primary'}" style="width:100%;padding:13px;font-size:14px;margin-top:4px;" onclick="salvarAtualizar()">${isEnc?'🔒 Encerrar chamado':'✅ Confirmar atendimento'}</button>`;
+      <button class="btn ${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'primary':isEnc?'success':'primary'}" style="width:100%;padding:13px;font-size:14px;margin-top:4px;" onclick="salvarAtualizar()">${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'Enviar proposta':isEnc?'Encerrar chamado':'Confirmar atendimento'}</button>`;
   }
 
   // FORM TÉCNICO
@@ -850,6 +1493,8 @@ function salvarNovo(){
     descricao:document.getElementById('f-desc').value.trim()||titulo,
     abertura:hoje(),atendimento:null,valor:null,
     solucao:'',obs:'',fotos:[],encerramento:null,
+    analistaId:currentAnalista?currentAnalista.id:'',
+    analistaNome:currentAnalista?currentAnalista.nome:'',
   });
   save();closeModal();render();toast('✅ Chamado criado!');
 }
@@ -863,21 +1508,42 @@ function salvarAtrib(){
 }
 
 function salvarAtualizar(){
-  var c=editTarget;
-  var isEnc=c.status==='andamento';
+  var ch=editTarget;
+  var isEnc=ch.status==='andamento';
+  var emCotacaoPendente=currentRole==='tecnico'&&isCotacaoTec(ch,currentTecnico.id);
+  if(emCotacaoPendente){
+    // Salva proposta APENAS no objeto de cotacao - nao altera ch.valor nem ch.atendimento
+    // para que outros tecnicos nao vejam os valores uns dos outros
+    var vProp=parseFloat((document.getElementById('f-valor')||{}).value)||null;
+    var aProp=fmtData((document.getElementById('f-atend')||{}).value||'');
+    var oProp=((document.getElementById('f-obs-and')||{}).value||'').trim();
+    ch.cotacao.forEach(function(ct){
+      if(ct.tecId===currentTecnico.id) ct.proposta={valor:vProp,atendimento:aProp,obs:oProp};
+    });
+    save();closeModal();render();
+    toast('Proposta enviada! Aguardando aprovacao do analista.');
+    return;
+  }
   var vEl=document.getElementById('f-valor');
-  if(vEl&&vEl.value) c.valor=parseFloat(vEl.value)||null;
+  if(vEl&&vEl.value) ch.valor=parseFloat(vEl.value)||null;
+  var stEl=document.getElementById('f-status-chamado');
+  if(stEl) ch.statusChamado=stEl.value||'';
+  var obsAndEl=document.getElementById('f-obs-and');
+  if(obsAndEl&&obsAndEl.value.trim()) ch.obs=obsAndEl.value.trim();
   if(!isEnc){
-    var aEl=document.getElementById('f-atend');
-    if(aEl&&aEl.value) c.atendimento=fmtData(aEl.value);
-    c.status='andamento';toast('✅ Chamado assumido!');
+    var aEl2=document.getElementById('f-atend');
+    if(aEl2&&aEl2.value) ch.atendimento=fmtData(aEl2.value);
+    ch.status='andamento';toast('Chamado assumido!');
   } else {
     var sEl=document.getElementById('f-solucao');
     var oEl=document.getElementById('f-obs');
-    if(sEl) c.solucao=sEl.value.trim();
-    if(oEl) c.obs=oEl.value.trim();
-    c.fotos=[...(c.fotos||[]),...tempFotos];
-    c.encerramento=hoje();c.status='encerrado';toast('🔒 Chamado encerrado!');
+    var dcEl=document.getElementById('f-data-conserto');
+    if(sEl) ch.solucao=sEl.value.trim();
+    if(oEl) ch.obs=oEl.value.trim();
+    if(dcEl&&dcEl.value) ch.dataConserto=dcEl.value; // salva em formato ISO (YYYY-MM-DD)
+    ch.fotos=[...(ch.fotos||[]),...tempFotos];
+    ch.statusChamado='';
+    ch.encerramento=hoje();ch.status='encerrado';toast('Chamado encerrado!');
   }
   save();closeModal();render();
 }
@@ -943,6 +1609,96 @@ function excluirTec(id){
   if(!confirm('Excluir este tecnico?')) return;
   tecnicos=tecnicos.filter(t=>t.id!==id);
   save();renderTecnicos();toast('Removido.');
+}
+
+function toggleCotacao(el){
+  var selected = el.getAttribute('data-selected')==='1';
+  if(selected){
+    el.setAttribute('data-selected','0');
+    el.style.border='2px solid var(--border)';
+    el.style.background='white';
+    el.querySelector('.cotacao-check-box').style.background='';
+    el.querySelector('.cotacao-check-box').style.borderColor='var(--border2)';
+    el.querySelector('.cotacao-check-box').textContent='';
+  } else {
+    el.setAttribute('data-selected','1');
+    el.style.border='2px solid var(--or)';
+    el.style.background='var(--or-bg)';
+    el.querySelector('.cotacao-check-box').style.background='var(--or)';
+    el.querySelector('.cotacao-check-box').style.borderColor='var(--or)';
+    el.querySelector('.cotacao-check-box').style.color='white';
+    el.querySelector('.cotacao-check-box').textContent='V';
+  }
+}
+
+function salvarCotacao(chamadoId){
+  var ch=chamados.find(function(x){ return x.id===chamadoId; });
+  if(!ch) return;
+  var items=document.querySelectorAll('.cotacao-item[data-selected="1"]');
+  if(!items.length){ toast('Selecione ao menos um tecnico!'); return; }
+  ch.cotacao=[];
+  items.forEach(function(item){
+    var tecId=item.getAttribute('data-id');
+    var tec=tecnicos.find(function(t){ return t.id===tecId; });
+    if(tec) ch.cotacao.push({tecId:tec.id,tecNome:tec.nome,status:'pendente'});
+  });
+  ch.tecnicoId=null;
+  ch.nomeTecnico='Cotacao: '+ch.cotacao.map(function(x){return x.tecNome.split(' ')[0];}).join(', ');
+  save();closeModal();render();
+  // WhatsApp para todos - salva lista e abre um de cada vez
+  var titulo=tituloValido(ch.titulo)?ch.titulo:('OS '+ch.effortOS);
+  var base=window.location.href.split('?')[0].split('#')[0];
+  var msgs=[];
+  ch.cotacao.forEach(function(ct){
+    var tec=tecnicos.find(function(t){ return t.id===ct.tecId; });
+    if(!tec||!tec.whatsapp) return;
+    var linkTec=base+'?tec='+encodeURIComponent(tec.id);
+    msgs.push({
+      nome:tec.nome.split(' ')[0],
+      num:(tec.whatsapp||'').replace(/\D/g,''),
+      msg:encodeURIComponent(
+        'Ola '+tec.nome.split(' ')[0]+'!\n\n'+
+        'Temos um chamado em cotacao aguardando sua proposta:\n\n'+
+        'OS: '+ch.id+'\n'+
+        (ch.equipamento?'Equipamento: '+ch.equipamento+'\n':'')+
+        (ch.unidade?'Setor: '+ch.unidade+'\n':'')+
+        'Ocorrencia: '+titulo+'\n\n'+
+        'Acesse o link para ver os detalhes e enviar seu valor:\n'+linkTec
+      )
+    });
+  });
+  if(msgs.length){
+    // Abre WhatsApp do primeiro imediatamente
+    window.open('https://wa.me/55'+msgs[0].num+'?text='+msgs[0].msg,'_blank');
+    // Os demais abre com delay para nao bloquear popup
+    for(var mi=1;mi<msgs.length;mi++){
+      (function(m){
+        setTimeout(function(){ window.open('https://wa.me/55'+m.num+'?text='+m.msg,'_blank'); },mi*1500);
+      })(msgs[mi]);
+    }
+  }
+  toast('Cotacao enviada! WhatsApp abrindo para '+msgs.length+' tecnicos.');
+}
+
+function aprovarCotacao(chamadoId,tecId){
+  var ch=chamados.find(function(x){ return x.id===chamadoId; });
+  if(!ch||!ch.cotacao) return;
+  var tec=tecnicos.find(function(t){ return t.id===tecId; });
+  if(!tec) return;
+  // Pega proposta do tecnico aprovado se existir
+  var ct=ch.cotacao.find(function(x){ return x.tecId===tecId; });
+  if(ct&&ct.proposta){
+    ch.valor=ct.proposta.valor||ch.valor;
+    ch.atendimento=ct.proposta.atendimento||ch.atendimento;
+    ch.obs=ct.proposta.obs||ch.obs;
+  }
+  ch.tecnicoId=tecId;
+  ch.nomeTecnico=tec.nome;
+  ch._cotacaoOrigem=true; // marca que veio de cotacao
+  ch.cotacao=null; // limpa cotacao
+  // Chamado vai para status aberto (tecnico aprovado precisa assumir)
+  ch.status='aberto';
+  save();closeModal();render();toast('Cotacao aprovada! '+tec.nome.split(' ')[0]+' foi atribuido.');
 }
 
 function reabrirChamado(id){
@@ -1020,22 +1776,57 @@ function closeModalOutside(e){
 // Polling no localStorage a cada 1s - extensão grava aqui
 // ---
 function verificarNovasOS(){
+  // Verifica extensao do Effort via localStorage (extensao nao tem acesso ao Supabase)
   try{
-    // Verifica nova chave v5
     var raw=localStorage.getItem('maint_v5');
     if(!raw||raw===_snap) return;
     var data=JSON.parse(raw);
-    var idsAtuais=chamados.map(c=>c.id);
-    var novos=(data.chamados||[]).filter(c=>idsAtuais.indexOf(c.id)===-1);
-    chamados=data.chamados||[];
-    tecnicos=data.tecnicos||tecnicos;
-    nextId=data.nextId||nextId;
+    var idsAtuais=chamados.map(function(x){ return x.id; });
+    var dataChamados=data.chamados||[];
+    var novos=dataChamados.filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
+    if(novos.length===0) return;
+    // Marca analistaId nos novos chamados
+    novos.forEach(function(ch){
+      if(currentAnalista){
+        ch.analistaId=currentAnalista.id;
+        ch.analistaNome=currentAnalista.nome;
+      }
+    });
+    // Incorpora novos chamados no array atual
+    chamados=chamados.concat(novos);
     _snap=raw;
-    if(novos.length>0&&currentRole){
-      render();
-      toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
-    }
+    // Salva no Supabase (fonte de verdade)
+    save();
+    render();
+    toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
   }catch(e){}
+}
+
+// Sincronizacao em tempo real - busca atualizacoes do Supabase a cada 15s
+var _lastSync=0;
+function syncSupabase(){
+  var agora=Date.now();
+  if(agora-_lastSync<15000) return; // no maximo 1x a cada 15s
+  _lastSync=agora;
+  supaGet('config','chave=eq.dados')
+    .then(function(rows){
+      if(!rows||!rows[0]||!rows[0].valor) return;
+      var d=rows[0].valor;
+      var idsAtuais=chamados.map(function(x){ return x.id; });
+      var novos=(d.chamados||[]).filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
+      var temMudanca=novos.length>0||
+        (d.chamados||[]).some(function(dc){
+          var local=chamados.find(function(lc){ return lc.id===dc.id; });
+          return local&&JSON.stringify(local)!==JSON.stringify(dc);
+        });
+      if(temMudanca){
+        aplicarDados(d);
+        try{localStorage.setItem('maint_v5',JSON.stringify(d));}catch(e){}
+        if(currentRole) render();
+        if(novos.length>0) toast('🔄 '+novos.length+' chamado'+(novos.length>1?'s':'')+'  atualizado'+(novos.length>1?'s':'')+'!');
+      }
+    })
+    .catch(function(){});
 }
 
 // ---
@@ -1044,14 +1835,20 @@ function verificarNovasOS(){
 migrar();
 load();
 _snap=localStorage.getItem('maint_v5')||'';
-setInterval(verificarNovasOS,1000);
+// Verifica extensao Effort a cada 2s, sincroniza Supabase a cada 15s
+setInterval(function(){
+  verificarNovasOS();
+  if(currentRole) syncSupabase();
+},2000);
 
 // Persiste sessao do analista para nao perder ao recarregar
 (function(){
   try {
     var sess = sessionStorage.getItem('role_adm');
+    var admId = sessionStorage.getItem('analista_id');
     if(sess === '1'){
       currentRole='adm'; currentTecnico=null;
+      if(admId) currentAnalista=analistas.find(function(x){ return x.id===admId; })||null;
       montarApp();
       return;
     }
