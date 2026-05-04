@@ -1257,14 +1257,18 @@ function enviarWhats(id){
 function renderCotacaoBlock(ch){
   if(!ch.cotacao||!ch.cotacao.length) return '';
   if(currentRole==='tecnico'&&currentTecnico){
+    // Tecnico so ve seu proprio status - NAO ve outros tecnicos
     var minhaCot=ch.cotacao.find(function(ct){ return ct.tecId===currentTecnico.id; });
-    var proposta=minhaCot&&minhaCot.proposta;
+    if(!minhaCot) return '';
+    var proposta=minhaCot.proposta;
     return '<div class="detail-block" style="background:var(--amber-bg);border-color:var(--amber-bd);">'+
-      '<div class="sec" style="color:var(--amber);">Aguardando aprovacao</div>'+
+      '<div class="sec" style="color:var(--amber);">Aguardando aprovacao do analista</div>'+
       '<p style="font-size:13px;color:var(--amber);line-height:1.5;">Sua proposta foi enviada. Voce sera notificado quando for aprovado.</p>'+
-      (proposta&&proposta.valor?'<p style="font-size:12px;color:var(--amber);margin-top:4px;">Seu valor: R$ '+Number(proposta.valor).toFixed(2).replace('.',',')+'</p>':'')+
+      (proposta&&proposta.valor?'<p style="font-size:12px;color:var(--amber);font-weight:600;margin-top:4px;">Seu valor: R$ '+Number(proposta.valor).toFixed(2).replace('.',',')+'</p>':'')+
+      (proposta&&proposta.atendimento?'<p style="font-size:12px;color:var(--amber);margin-top:2px;">Atendimento previsto: '+proposta.atendimento+'</p>':'')+
       '</div>';
   }
+  // ADM ve todos os tecnicos e propostas
   var pendentes=ch.cotacao.filter(function(ct){ return ct.status==='pendente'; });
   if(!pendentes.length) return '';
   return '<div class="detail-block">'+
@@ -1424,43 +1428,86 @@ function openModal(tipo,id){
   else if(tipo==='atualizar'){
     var c=editTarget;
     var isEnc=c.status==='andamento';
+    var isCot=isCotacaoTec(c,currentTecnico&&currentTecnico.id);
     var titulo=tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS);
+    var tituloModal=isCot?'Enviar proposta':isEnc?'Encerrar chamado':'Assumir chamado';
     html+=`
-      <div class="modal-header"><span class="modal-title">${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'Enviar proposta':(isEnc?'Encerrar chamado':'Assumir chamado')}</span><button class="close-btn" onclick="closeModal()">X</button></div>
-      ${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'<div class="info-box" style="background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber);">Este chamado esta em cotacao. Informe seus dados e envie sua proposta. Voce sera avisado se for aprovado.</div>':''}
-      <div class="info-box"><strong>${trunc(titulo,80)}</strong><br><span style="font-size:11px;opacity:.8;">${c.id}</span></div>
+      <div class="modal-header">
+        <span class="modal-title">${tituloModal}</span>
+        <button class="close-btn" onclick="closeModal()">X</button>
+      </div>
+      ${isCot?'<div class="info-box" style="background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber);"><strong>Chamado em cotacao.</strong> Informe a data prevista e valor. Voce sera notificado se aprovado.</div>':''}
+      <div class="info-box"><strong>${trunc(titulo,80)}</strong><br><span style="font-size:11px;opacity:.8;">${c.id}${c.unidade?' · '+c.unidade:''}</span></div>
       <div class="detail-block" style="margin-bottom:14px;">
-        <div class="sec">Informações do equipamento</div>
+        <div class="sec">Equipamento</div>
         ${c.equipamento?`<div class="detail-row"><span class="dl">Equipamento</span><span class="dv">${c.equipamento}</span></div>`:''}
         ${c.patrimonio?`<div class="detail-row"><span class="dl">Patrimônio</span><span class="dv">${c.patrimonio}</span></div>`:''}
-        ${c.nSerie?`<div class="detail-row"><span class="dl">Nº de Série</span><span class="dv">${c.nSerie}</span></div>`:''}
+        ${c.nSerie?`<div class="detail-row"><span class="dl">N de Serie</span><span class="dv">${c.nSerie}</span></div>`:''}
         ${c.unidade?`<div class="detail-row"><span class="dl">Setor</span><span class="dv">${c.unidade}</span></div>`:''}
         ${c.abertura?`<div class="detail-row"><span class="dl">Abertura</span><span class="dv">${c.abertura}</span></div>`:''}
-        ${c.statusChamado?`<div class="detail-row"><span class="dl">Status atual</span><span class="dv" style="color:var(--blue);">${c.statusChamado}</span></div>`:''}
       </div>
-      ${!isEnc?`<div class="field"><label>Data de atendimento</label><input id="f-atend" type="date" value="${new Date().toISOString().split('T')[0]}"/></div>`:''}
-      <div class="field"><label>Valor do serviço (R$)</label><input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'':c.valor||''}"/></div>
-      <div class="field">
-        <label>Status atual</label>
-        <select id="f-status-chamado">
-          <option value="">-- Selecione --</option>
-          ${statusDisponiveis.map(s=>`<option value="${s}" ${c.statusChamado===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field"><label>Observação / Atualização</label><textarea id="f-obs-and" placeholder="Atualize o status do atendimento...">${c.obs||''}</textarea></div>
-      ${isEnc?`
-        <div class="field"><label>Data do conserto</label><input id="f-data-conserto" type="date" value="${c.dataConserto||new Date().toISOString().split('T')[0]}"/><div class="field-hint">Dia em que o equipamento foi efetivamente consertado</div></div>
-        <div class="field"><label>Solução aplicada</label><textarea id="f-solucao" placeholder="Descreva a solução aplicada...">${c.solucao||''}</textarea></div>
+
+      ${/* MODO COTACAO: data atendimento obrigatoria, valor opcional */ ''}
+      ${isCot?`
+        <div class="field">
+          <label>Data prevista de atendimento <span style="color:var(--red);">*</span></label>
+          <input id="f-atend" type="date" value="" placeholder="Selecione a data"/>
+          <div class="field-hint" style="color:var(--red);">Obrigatório — informe quando poderá atender</div>
+        </div>
+        <div class="field">
+          <label>Valor da proposta (R$)</label>
+          <input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value=""/>
+        </div>
+        <div class="field"><label>Observação</label><textarea id="f-obs-and" placeholder="Detalhes da proposta..."></textarea></div>
+      `:''}
+
+      ${/* MODO ASSUMIR: data atendimento obrigatoria (campo vazio) */ ''}
+      ${!isCot&&!isEnc?`
+        <div class="field">
+          <label>Data de atendimento <span style="color:var(--red);">*</span></label>
+          <input id="f-atend" type="date" value=""/>
+          <div class="field-hint" style="color:var(--red);">Obrigatório — informe a data do atendimento</div>
+        </div>
+        <div class="field">
+          <label>Observação</label>
+          <textarea id="f-obs-and" placeholder="Informações sobre o atendimento...">${c.obs||''}</textarea>
+        </div>
+      `:''}
+
+      ${/* MODO ENCERRAR: data conserto obrigatoria (vazio), valor obrigatorio */ ''}
+      ${isEnc&&!isCot?`
+        <div class="field">
+          <label>Data do conserto <span style="color:var(--red);">*</span></label>
+          <input id="f-data-conserto" type="date" value=""/>
+          <div class="field-hint" style="color:var(--red);">Obrigatório — dia em que o equipamento foi consertado</div>
+        </div>
+        <div class="field">
+          <label>Valor do serviço (R$) <span style="color:var(--red);">*</span></label>
+          <input id="f-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${c.valor||''}"/>
+          <div class="field-hint" style="color:var(--red);">Obrigatório — informe o valor cobrado</div>
+        </div>
+        <div class="field">
+          <label>Status atual</label>
+          <select id="f-status-chamado">
+            <option value="">-- Selecione --</option>
+            ${statusDisponiveis.map(s=>`<option value="${s}" ${c.statusChamado===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Solução aplicada</label><textarea id="f-solucao" placeholder="Descreva o que foi feito...">${c.solucao||''}</textarea></div>
         <div class="field"><label>Observações adicionais</label><textarea id="f-obs" placeholder="Informações extras...">${c.obs||''}</textarea></div>
         <div class="field">
           <label>Fotos do serviço</label>
           <div class="photo-grid" id="photo-preview">${c.fotos&&c.fotos.length?c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join(''):''}</div>
           <label style="cursor:pointer;display:inline-block;margin-top:8px;">
-            <div class="photo-add">📷<span>Adicionar foto</span></div>
+            <div class="photo-add">📷<span>Foto</span></div>
             <input type="file" accept="image/*" multiple capture="environment" style="display:none;" onchange="addFotos(event)"/>
           </label>
-        </div>`:''}
-      <button class="btn ${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'primary':isEnc?'success':'primary'}" style="width:100%;padding:13px;font-size:14px;margin-top:4px;" onclick="salvarAtualizar()">${isCotacaoTec(c,currentTecnico&&currentTecnico.id)?'Enviar proposta':isEnc?'Encerrar chamado':'Confirmar atendimento'}</button>`;
+        </div>
+      `:''}
+
+      <button class="btn ${isCot?'primary':isEnc?'success':'primary'}" style="width:100%;padding:13px;font-size:14px;margin-top:8px;" onclick="salvarAtualizar()">
+        ${isCot?'📋 Enviar proposta':isEnc?'🔒 Encerrar chamado':'✅ Confirmar atendimento'}
+      </button>`;
   }
 
   // FORM TÉCNICO
@@ -1528,41 +1575,75 @@ function salvarAtualizar(){
   var ch=editTarget;
   var isEnc=ch.status==='andamento';
   var emCotacaoPendente=currentRole==='tecnico'&&isCotacaoTec(ch,currentTecnico.id);
+
+  // ── MODO COTAÇÃO ──────────────────────────────────────────────
   if(emCotacaoPendente){
-    // Salva proposta APENAS no objeto de cotacao - nao altera ch.valor nem ch.atendimento
-    // para que outros tecnicos nao vejam os valores uns dos outros
+    var aEl=document.getElementById('f-atend');
+    if(!aEl||!aEl.value){
+      toast('Informe a data prevista de atendimento!');
+      if(aEl) aEl.style.borderColor='var(--red)';
+      return;
+    }
     var vProp=parseFloat((document.getElementById('f-valor')||{}).value)||null;
-    var aProp=fmtData((document.getElementById('f-atend')||{}).value||'');
+    var aProp=fmtData(aEl.value);
     var oProp=((document.getElementById('f-obs-and')||{}).value||'').trim();
     ch.cotacao.forEach(function(ct){
       if(ct.tecId===currentTecnico.id) ct.proposta={valor:vProp,atendimento:aProp,obs:oProp};
     });
-    save();closeModal();render();
-    toast('Proposta enviada! Aguardando aprovacao do analista.');
+    save();
+    closeModal();
+    render();
+    toast('Proposta enviada! Aguardando aprovacao.');
+    return;
+  }
+
+  // ── MODO ASSUMIR ──────────────────────────────────────────────
+  if(!isEnc){
+    var aEl2=document.getElementById('f-atend');
+    if(!aEl2||!aEl2.value){
+      toast('Informe a data de atendimento!');
+      if(aEl2) aEl2.style.borderColor='var(--red)';
+      return;
+    }
+    var obsAnd=document.getElementById('f-obs-and');
+    if(obsAnd&&obsAnd.value.trim()) ch.obs=obsAnd.value.trim();
+    ch.atendimento=fmtData(aEl2.value);
+    ch.status='andamento';
+    save();
+    closeModal();
+    render();
+    toast('Chamado assumido!');
+    return;
+  }
+
+  // ── MODO ENCERRAR ─────────────────────────────────────────────
+  var dcEl=document.getElementById('f-data-conserto');
+  if(!dcEl||!dcEl.value){
+    toast('Informe a data do conserto!');
+    if(dcEl) dcEl.style.borderColor='var(--red)';
     return;
   }
   var vEl=document.getElementById('f-valor');
-  if(vEl&&vEl.value) ch.valor=parseFloat(vEl.value)||null;
-  var stEl=document.getElementById('f-status-chamado');
-  if(stEl) ch.statusChamado=stEl.value||'';
-  var obsAndEl=document.getElementById('f-obs-and');
-  if(obsAndEl&&obsAndEl.value.trim()) ch.obs=obsAndEl.value.trim();
-  if(!isEnc){
-    var aEl2=document.getElementById('f-atend');
-    if(aEl2&&aEl2.value) ch.atendimento=fmtData(aEl2.value);
-    ch.status='andamento';toast('Chamado assumido!');
-  } else {
-    var sEl=document.getElementById('f-solucao');
-    var oEl=document.getElementById('f-obs');
-    var dcEl=document.getElementById('f-data-conserto');
-    if(sEl) ch.solucao=sEl.value.trim();
-    if(oEl) ch.obs=oEl.value.trim();
-    if(dcEl&&dcEl.value) ch.dataConserto=dcEl.value; // salva em formato ISO (YYYY-MM-DD)
-    ch.fotos=[...(ch.fotos||[]),...tempFotos];
-    ch.statusChamado='';
-    ch.encerramento=hoje();ch.status='encerrado';toast('Chamado encerrado!');
+  if(!vEl||!vEl.value||parseFloat(vEl.value)<=0){
+    toast('Informe o valor do serviço!');
+    if(vEl) vEl.style.borderColor='var(--red)';
+    return;
   }
-  save();closeModal();render();
+  var stEl=document.getElementById('f-status-chamado');
+  var sEl=document.getElementById('f-solucao');
+  var oEl=document.getElementById('f-obs');
+  ch.dataConserto=dcEl.value;
+  ch.valor=parseFloat(vEl.value)||null;
+  if(stEl) ch.statusChamado=''; // limpa status ao encerrar
+  if(sEl) ch.solucao=sEl.value.trim();
+  if(oEl) ch.obs=oEl.value.trim();
+  ch.fotos=[...(ch.fotos||[]),...tempFotos];
+  ch.encerramento=hoje();
+  ch.status='encerrado';
+  save();
+  closeModal();
+  render();
+  toast('Chamado encerrado!');
 }
 
 function salvarTec(id){
