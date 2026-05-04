@@ -497,11 +497,14 @@ var editTarget=null, tempFotos=[], prioSel='media';
 var _snap='';
 var _saving=false;
 var _saveQueue=false;
+var _lastSaveTime=0; // timestamp do ultimo save - bloqueia sync por 5s apos salvar
 
 // ---
 // PERSISTÊNCIA
 // ---
 function save(){
+  // Marca o momento do save para bloquear sync por 5s
+  _lastSaveTime=Date.now();
   // Salva no localStorage como cache local imediato
   try{localStorage.setItem('maint_v5',JSON.stringify({chamados,tecnicos,nextId,statusDisponiveis,analistas}));}catch(e){}
   // Salva no Supabase (com debounce para nao sobrecarregar)
@@ -1046,9 +1049,14 @@ function adicionarAnalista(){
 }
 
 function excluirAnalista(idx){
-  if(!confirm('Remover este analista?')) return;
+  if(analistas.length<=1){
+    toast('Nao e possivel remover o unico perfil!');
+    return;
+  }
+  var nome=analistas[idx]?analistas[idx].nome:'este perfil';
+  if(!confirm('Excluir o perfil "'+nome+'"? Os chamados atribuidos a ele ficarao sem analista.')) return;
   analistas.splice(idx,1);
-  save();renderStatusCfg();toast('Analista removido!');
+  save();renderStatusCfg();toast('Perfil removido!');
 }
 
 function renderNotaFiscal(){
@@ -1369,6 +1377,7 @@ function openModal(tipo,id){
         ${isAdm&&c.status!=='encerrado'?`<button class="btn primary" onclick="openModal('atrib','${c.id}')">Atribuir</button>`:''}
         ${isAdm&&c.nomeTecnico&&c.status!=='encerrado'?`<button class="btn whats" onclick="enviarWhats('${c.id}')">WhatsApp</button>`:''}
         ${isAdm&&c.status==='encerrado'?`<button class="btn" style="background:var(--amber-bg);color:var(--amber);" onclick="reabrirChamado('${c.id}')">Reabrir</button>`:''}
+        ${isAdm?`<button class="btn" style="background:#FEE2E2;color:var(--red);border-color:#FCA5A5;" onclick="excluirChamado('${c.id}')">Excluir</button>`:''}
         ${isTec&&c.status!=='encerrado'?`<button class="btn ${c.status==='aberto'?'primary':'success'}" onclick="openModal('atualizar','${c.id}')">${c.status==='aberto'?'Assumir':'Encerrar'}</button>`:''}
       </div>`;
   }
@@ -1710,6 +1719,14 @@ function reabrirChamado(id){
   save();closeModal();render();toast('Chamado reaberto!');
 }
 
+function excluirChamado(id){
+  var ch=chamados.find(function(x){ return x.id===id; });
+  if(!ch) return;
+  if(!confirm('Excluir permanentemente o chamado '+id+'? Esta acao nao pode ser desfeita.')) return;
+  chamados=chamados.filter(function(x){ return x.id!==id; });
+  save();closeModal();render();toast('Chamado excluido.');
+}
+
 function copiarChamadosTec(tecId){
   var tec=tecnicos.find(function(t){ return t.id===tecId; });
   if(!tec){ toast('Tecnico nao encontrado'); return; }
@@ -1794,7 +1811,12 @@ function verificarNovasOS(){
     });
     // Incorpora novos chamados no array atual
     chamados=chamados.concat(novos);
-    _snap=raw;
+    // Atualiza snap para evitar reprocessamento
+    var snapObj=JSON.parse(raw);
+    snapObj.chamados=chamados;
+    var novoSnap=JSON.stringify(snapObj);
+    _snap=novoSnap;
+    try{localStorage.setItem('maint_v5',novoSnap);}catch(e){}
     // Salva no Supabase (fonte de verdade)
     save();
     render();
@@ -1806,24 +1828,28 @@ function verificarNovasOS(){
 var _lastSync=0;
 function syncSupabase(){
   var agora=Date.now();
-  if(agora-_lastSync<15000) return; // no maximo 1x a cada 15s
+  if(agora-_lastSync<15000) return;
+  // NAO sincroniza se houve save recente (aguarda 5s para Supabase confirmar)
+  if(agora-_lastSaveTime<5000) return;
   _lastSync=agora;
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(!rows||!rows[0]||!rows[0].valor) return;
+      // Verifica novamente se nao houve save enquanto buscava
+      if(Date.now()-_lastSaveTime<5000) return;
       var d=rows[0].valor;
       var idsAtuais=chamados.map(function(x){ return x.id; });
       var novos=(d.chamados||[]).filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
-      var temMudanca=novos.length>0||
-        (d.chamados||[]).some(function(dc){
-          var local=chamados.find(function(lc){ return lc.id===dc.id; });
-          return local&&JSON.stringify(local)!==JSON.stringify(dc);
-        });
-      if(temMudanca){
-        aplicarDados(d);
-        try{localStorage.setItem('maint_v5',JSON.stringify(d));}catch(e){}
+      // So atualiza se ha chamados novos (de outro dispositivo)
+      // NAO sobrescreve mudancas de status feitas localmente
+      if(novos.length>0){
+        // Adiciona apenas os chamados novos, preserva os existentes locais
+        chamados=chamados.concat(novos);
+        var payload={chamados:chamados,tecnicos:tecnicos,nextId:nextId,
+          statusDisponiveis:statusDisponiveis,analistas:analistas};
+        try{localStorage.setItem('maint_v5',JSON.stringify(payload));}catch(e){}
         if(currentRole) render();
-        if(novos.length>0) toast('🔄 '+novos.length+' chamado'+(novos.length>1?'s':'')+'  atualizado'+(novos.length>1?'s':'')+'!');
+        toast('📥 '+novos.length+' novo'+(novos.length>1?'s chamados':'  chamado')+' recebido'+(novos.length>1?'s':'')+'!');
       }
     })
     .catch(function(){});
