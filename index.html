@@ -498,25 +498,28 @@ var _snap='';
 var _saving=false;
 var _saveQueue=false;
 var _lastSaveTime=0;
-var _versaoLocal=0; // timestamp da versao local - so aceita dados do servidor se mais novos
+var _lastSaveConfirmed=0;
+var _tsServidor=0; // timestamp da ultima versao que recebemos do servidor
+var _lastSync=0;
 
 // ---
 // PERSISTÊNCIA
 // ---
 function save(){
   _lastSaveTime=Date.now();
-  _versaoLocal=_lastSaveTime;
-  // Persiste versao no sessionStorage para sobreviver reload
-  try{ sessionStorage.setItem('_vl', String(_versaoLocal)); }catch(e){}
   if(_saving){ _saveQueue=true; return; }
   _saving=true;
   var payload={
     chamados:chamados, tecnicos:tecnicos, nextId:nextId,
     statusDisponiveis:statusDisponiveis, analistas:analistas,
-    _versao:_versaoLocal
+    _ts:Date.now()
   };
   supaUpsert('config',[{chave:'dados',valor:payload}])
-    .then(function(){ _saving=false; if(_saveQueue){ _saveQueue=false; save(); } })
+    .then(function(){
+      _saving=false;
+      _lastSaveConfirmed=Date.now();
+      if(_saveQueue){ _saveQueue=false; save(); }
+    })
     .catch(function(e){ _saving=false; console.warn('Erro Supabase:',e); });
 }
 var statusDisponiveis=['Aguardando peca','Aguardando visita','Em atendimento','Aguardando aprovacao'];
@@ -525,38 +528,25 @@ var currentAnalista=null;
 
 function aplicarDados(d, forcar){
   if(!d) return false;
-  var vRemota=d._versao||0;
-  // Nao sobrescreve se dados locais sao mais novos (a menos que seja forcado)
-  if(!forcar && vRemota>0 && vRemota<=_versaoLocal) return false;
   chamados=d.chamados||[];
   tecnicos=d.tecnicos||[];
   nextId=d.nextId||1;
   if(d.statusDisponiveis&&d.statusDisponiveis.length) statusDisponiveis=d.statusDisponiveis;
   if(d.analistas&&d.analistas.length) analistas=d.analistas;
-  if(vRemota>0) _versaoLocal=vRemota;
   return true;
 }
 
 function load(callback){
-  // Recupera versao local persistida do reload anterior
-  try{
-    var vl=sessionStorage.getItem('_vl');
-    if(vl) _versaoLocal=parseInt(vl)||0;
-  }catch(e){}
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(rows&&rows[0]&&rows[0].valor){
-        var d=rows[0].valor;
-        var vRemota=d._versao||0;
-        // Na primeira carga (sem versao local), sempre aplica
-        if(_versaoLocal===0 || vRemota>=_versaoLocal){
-          aplicarDados(d, true);
-        }
+        aplicarDados(rows[0].valor, true);
+        _tsServidor=rows[0].valor._ts||0;
       }
       if(callback) callback();
     })
     .catch(function(e){
-      console.warn('Erro Supabase:',e);
+      console.warn('Erro ao carregar Supabase:',e);
       if(callback) callback();
     });
 }
@@ -1911,21 +1901,24 @@ function verificarNovasOS(){
 }
 
 // Sincronizacao em tempo real - busca atualizacoes do Supabase a cada 15s
-var _lastSync=0;
 function syncSupabase(){
   var agora=Date.now();
-  if(agora-_lastSync<10000) return; // a cada 10s
+  if(agora-_lastSync<8000) return; // a cada 8s
   _lastSync=agora;
+  // Nao sincroniza se acabou de salvar (aguarda confirmacao)
+  if(agora-_lastSaveTime<2000) return;
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(!rows||!rows[0]||!rows[0].valor) return;
       var d=rows[0].valor;
-      var vRemota=d._versao||0;
-      // So aplica se versao remota for mais nova E nao houve save recente (3s)
-      var agoraSync=Date.now();
-      if(vRemota>_versaoLocal && (agoraSync-_lastSaveTime)>3000){
-        var ok=aplicarDados(d, false);
-        if(ok && currentRole) render();
+      var tsRemoto=d._ts||0;
+      // Aplica se: timestamp remoto for mais recente que o servidor que conhecemos
+      // E nao houve save local recente
+      var agoraCheck=Date.now();
+      if(tsRemoto>_tsServidor && (agoraCheck-_lastSaveTime)>2000){
+        _tsServidor=tsRemoto;
+        aplicarDados(d, true);
+        if(currentRole) render();
       }
     })
     .catch(function(){});
