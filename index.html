@@ -443,6 +443,7 @@ function montarApp(){
       <div><div class="tb-role" id="tb-role">Analista</div><div class="tb-name" id="tb-name">Chamados</div></div>
     </div>
     <div class="tb-right">
+      <span id="save-indicator" style="display:none;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;color:white;background:rgba(0,0,0,0.6);">Salvando...</span>
       <span class="tb-pill" id="counter">0</span>
       <button class="tb-exit" onclick="sair()">Sair</button>
     </div>
@@ -509,18 +510,46 @@ function save(){
   _lastSaveTime=Date.now();
   if(_saving){ _saveQueue=true; return; }
   _saving=true;
+  // Indicador visual de salvando
+  var ind=document.getElementById('save-indicator');
+  if(ind){ ind.style.display='flex'; ind.textContent='Salvando...'; ind.style.background='rgba(0,0,0,0.6)'; }
   var payload={
     chamados:chamados, tecnicos:tecnicos, nextId:nextId,
     statusDisponiveis:statusDisponiveis, analistas:analistas,
     _ts:Date.now()
   };
-  supaUpsert('config',[{chave:'dados',valor:payload}])
-    .then(function(){
-      _saving=false;
-      _lastSaveConfirmed=Date.now();
-      if(_saveQueue){ _saveQueue=false; save(); }
-    })
-    .catch(function(e){ _saving=false; console.warn('Erro Supabase:',e); });
+  function tentarSalvar(tentativa){
+    supaUpsert('config',[{chave:'dados',valor:payload}])
+      .then(function(r){
+        _saving=false;
+        _lastSaveConfirmed=Date.now();
+        _tsServidor=payload._ts;
+        // Confirma visualmente
+        if(ind){
+          ind.textContent='Salvo!';
+          ind.style.background='rgba(13,125,77,0.85)';
+          setTimeout(function(){ ind.style.display='none'; },2000);
+        }
+        if(_saveQueue){ _saveQueue=false; save(); }
+      })
+      .catch(function(e){
+        if(tentativa<3){
+          // Retry automatico
+          setTimeout(function(){ tentarSalvar(tentativa+1); }, 2000);
+          if(ind){ ind.textContent='Reconectando... ('+tentativa+'/3)'; ind.style.background='rgba(180,60,0,0.85)'; }
+        } else {
+          _saving=false;
+          if(ind){
+            ind.textContent='Erro ao salvar!';
+            ind.style.background='rgba(185,28,28,0.85)';
+            setTimeout(function(){ ind.style.display='none'; },4000);
+          }
+          toast('Erro ao salvar. Verifique sua conexao!');
+          console.warn('Erro Supabase apos 3 tentativas:',e);
+        }
+      });
+  }
+  tentarSalvar(1);
 }
 var statusDisponiveis=['Aguardando peca','Aguardando visita','Em atendimento','Aguardando aprovacao'];
 var analistas=[{id:'ADM-1',nome:'Analista 1'}];
