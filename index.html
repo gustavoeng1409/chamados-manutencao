@@ -505,58 +505,58 @@ var _versaoLocal=0; // timestamp da versao local - so aceita dados do servidor s
 // ---
 function save(){
   _lastSaveTime=Date.now();
-  _versaoLocal=Date.now();
+  _versaoLocal=_lastSaveTime;
+  // Persiste versao no sessionStorage para sobreviver reload
+  try{ sessionStorage.setItem('_vl', String(_versaoLocal)); }catch(e){}
   if(_saving){ _saveQueue=true; return; }
   _saving=true;
   var payload={
-    chamados:chamados,
-    tecnicos:tecnicos,
-    nextId:nextId,
-    statusDisponiveis:statusDisponiveis,
-    analistas:analistas,
+    chamados:chamados, tecnicos:tecnicos, nextId:nextId,
+    statusDisponiveis:statusDisponiveis, analistas:analistas,
     _versao:_versaoLocal
   };
   supaUpsert('config',[{chave:'dados',valor:payload}])
-    .then(function(){
-      _saving=false;
-      if(_saveQueue){ _saveQueue=false; save(); }
-    })
-    .catch(function(e){
-      _saving=false;
-      console.warn('Erro Supabase:',e);
-    });
+    .then(function(){ _saving=false; if(_saveQueue){ _saveQueue=false; save(); } })
+    .catch(function(e){ _saving=false; console.warn('Erro Supabase:',e); });
 }
 var statusDisponiveis=['Aguardando peca','Aguardando visita','Em atendimento','Aguardando aprovacao'];
 var analistas=[{id:'ADM-1',nome:'Analista 1'}];
 var currentAnalista=null;
 
-function aplicarDados(d, forcarAplicar){
+function aplicarDados(d, forcar){
   if(!d) return false;
-  // So aplica dados do servidor se forem mais novos que os locais
-  var versaoRemota=d._versao||0;
-  if(!forcarAplicar && versaoRemota>0 && versaoRemota<=_versaoLocal){
-    return false; // dados locais sao mais novos, ignora
-  }
+  var vRemota=d._versao||0;
+  // Nao sobrescreve se dados locais sao mais novos (a menos que seja forcado)
+  if(!forcar && vRemota>0 && vRemota<=_versaoLocal) return false;
   chamados=d.chamados||[];
   tecnicos=d.tecnicos||[];
   nextId=d.nextId||1;
   if(d.statusDisponiveis&&d.statusDisponiveis.length) statusDisponiveis=d.statusDisponiveis;
   if(d.analistas&&d.analistas.length) analistas=d.analistas;
-  if(versaoRemota>0) _versaoLocal=versaoRemota;
+  if(vRemota>0) _versaoLocal=vRemota;
   return true;
 }
 
 function load(callback){
-  // Busca dados APENAS do Supabase - sem localStorage
+  // Recupera versao local persistida do reload anterior
+  try{
+    var vl=sessionStorage.getItem('_vl');
+    if(vl) _versaoLocal=parseInt(vl)||0;
+  }catch(e){}
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(rows&&rows[0]&&rows[0].valor){
-        aplicarDados(rows[0].valor, true);
+        var d=rows[0].valor;
+        var vRemota=d._versao||0;
+        // Na primeira carga (sem versao local), sempre aplica
+        if(_versaoLocal===0 || vRemota>=_versaoLocal){
+          aplicarDados(d, true);
+        }
       }
       if(callback) callback();
     })
     .catch(function(e){
-      console.warn('Erro ao carregar Supabase:',e);
+      console.warn('Erro Supabase:',e);
       if(callback) callback();
     });
 }
@@ -1803,49 +1803,29 @@ function closeModalOutside(e){
 // Polling no localStorage a cada 1s - extensão grava aqui
 // ---
 function verificarNovasOS(){
-  // A extensao grava OS em chave separada no localStorage
   try{
-    var raw=localStorage.getItem('effort_os_pendentes');
-    if(!raw) return;
-    var novosEffort=JSON.parse(raw);
-    if(!novosEffort||!novosEffort.length) return;
-    // Limpa a chave imediatamente para nao reprocessar
-    localStorage.removeItem('effort_os_pendentes');
-    var idsAtuais=chamados.map(function(x){ return x.id; });
-    var novos=novosEffort.filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
-    if(novos.length===0) return;
+    var raw=localStorage.getItem('maint_v5');
+    if(!raw||raw===_snap) return;
+    var data=JSON.parse(raw);
+    var novosArr=data.chamados||[];
+    if(!novosArr.length){ _snap=raw; return; }
+    var idsAtuais=chamados.map(function(x){return x.id;});
+    var novos=novosArr.filter(function(x){return idsAtuais.indexOf(x.id)===-1;});
+    if(!novos.length){ _snap=raw; return; }
+    // Marca analista nos novos chamados
     novos.forEach(function(ch){
-      if(currentAnalista){
-        ch.analistaId=currentAnalista.id;
-        ch.analistaNome=currentAnalista.nome;
-      }
-    });
-    chamados=chamados.concat(novos);
-    save();
-    render();
-    toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
-  }catch(e){}
-  // Fallback: verifica chave antiga maint_v5
-  try{
-    var rawOld=localStorage.getItem('maint_v5');
-    if(!rawOld||rawOld===_snap) return;
-    _snap=rawOld;
-    var dataOld=JSON.parse(rawOld);
-    var idsAtuaisOld=chamados.map(function(x){ return x.id; });
-    var dataChamados=dataOld.chamados||[];
-    var novosOld=dataChamados.filter(function(x){ return idsAtuaisOld.indexOf(x.id)===-1; });
-    if(novosOld.length===0) return;
-    novosOld.forEach(function(ch){
       if(currentAnalista&&!ch.analistaId){
         ch.analistaId=currentAnalista.id;
         ch.analistaNome=currentAnalista.nome;
       }
     });
-    chamados=chamados.concat(novosOld);
+    chamados=chamados.concat(novos);
+    // Remove do localStorage apos processar
     localStorage.removeItem('maint_v5');
+    _snap='';
     save();
     render();
-    toast('📥 '+novosOld.length+' nova'+(novosOld.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
+    toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS':' OS')+' do Effort!');
   }catch(e){}
 }
 
@@ -1853,20 +1833,18 @@ function verificarNovasOS(){
 var _lastSync=0;
 function syncSupabase(){
   var agora=Date.now();
-  if(agora-_lastSync<15000) return;
+  if(agora-_lastSync<10000) return; // a cada 10s
   _lastSync=agora;
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(!rows||!rows[0]||!rows[0].valor) return;
       var d=rows[0].valor;
-      var versaoRemota=d._versao||0;
-      // So aplica se versao remota for estritamente mais nova que a local
-      if(versaoRemota<=_versaoLocal) return;
-      var aplicou=aplicarDados(d, false);
-      if(aplicou){
-        try{localStorage.setItem('maint_v5',JSON.stringify(d));}catch(e){}
-        if(currentRole) render();
-        toast('🔄 Sistema atualizado por outro dispositivo!');
+      var vRemota=d._versao||0;
+      // So aplica se versao remota for mais nova E nao houve save recente (3s)
+      var agoraSync=Date.now();
+      if(vRemota>_versaoLocal && (agoraSync-_lastSaveTime)>3000){
+        var ok=aplicarDados(d, false);
+        if(ok && currentRole) render();
       }
     })
     .catch(function(){});
@@ -1876,13 +1854,16 @@ function syncSupabase(){
 // INIT
 // ---
 migrar();
-// Limpa localStorage antigo para nao interferir
-try{ localStorage.removeItem('maint_v5'); }catch(e){}
+// IMPORTANTE: NAO remove maint_v5 - extensao Effort usa essa chave para comunicar OS novas
+// Apenas reseta _snap para que verificarNovasOS detecte mudancas da extensao
+_snap = localStorage.getItem('maint_v5') || '';
 
 // Carrega dados do Supabase ANTES de qualquer login
 load(function(){
-  // So executa login automatico APOS dados carregarem
+  // Apos carregar dados, executa login automatico
   _iniciarSessao();
+  // Agora que dados estao prontos, verifica se extensao ja gravou alguma OS
+  verificarNovasOS();
 });
 
 // Verifica extensao Effort a cada 2s, sincroniza Supabase a cada 20s
