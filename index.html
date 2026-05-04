@@ -1903,21 +1903,17 @@ function verificarNovasOS(){
 // Sincronizacao em tempo real - busca atualizacoes do Supabase a cada 15s
 function syncSupabase(){
   var agora=Date.now();
-  if(agora-_lastSync<8000) return; // a cada 8s
+  if(agora-_lastSync<8000) return;
   _lastSync=agora;
-  // Nao sincroniza se acabou de salvar (aguarda confirmacao)
-  if(agora-_lastSaveTime<2000) return;
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(!rows||!rows[0]||!rows[0].valor) return;
       var d=rows[0].valor;
       var tsRemoto=d._ts||0;
-      // Aplica se: timestamp remoto for mais recente que o servidor que conhecemos
-      // E nao houve save local recente
-      var agoraCheck=Date.now();
-      if(tsRemoto>_tsServidor && (agoraCheck-_lastSaveTime)>2000){
+      // Aplica se versao remota for mais nova que a ultima que recebemos
+      if(tsRemoto>_tsServidor){
         _tsServidor=tsRemoto;
-        aplicarDados(d, true);
+        aplicarDados(d,true);
         if(currentRole) render();
       }
     })
