@@ -504,14 +504,10 @@ var _versaoLocal=0; // timestamp da versao local - so aceita dados do servidor s
 // PERSISTÊNCIA
 // ---
 function save(){
-  // Marca o momento do save para bloquear sync por 5s
   _lastSaveTime=Date.now();
-  // Salva no localStorage como cache local imediato
-  try{localStorage.setItem('maint_v5',JSON.stringify({chamados,tecnicos,nextId,statusDisponiveis,analistas}));}catch(e){}
-  // Salva no Supabase (com debounce para nao sobrecarregar)
+  _versaoLocal=Date.now();
   if(_saving){ _saveQueue=true; return; }
   _saving=true;
-  _versaoLocal=Date.now(); // atualiza versao local imediatamente
   var payload={
     chamados:chamados,
     tecnicos:tecnicos,
@@ -527,7 +523,7 @@ function save(){
     })
     .catch(function(e){
       _saving=false;
-      console.warn('Erro ao salvar no Supabase:',e);
+      console.warn('Erro Supabase:',e);
     });
 }
 var statusDisponiveis=['Aguardando peca','Aguardando visita','Em atendimento','Aguardando aprovacao'];
@@ -550,25 +546,19 @@ function aplicarDados(d, forcarAplicar){
   return true;
 }
 
-function load(){
-  // Carrega cache local imediatamente (forcar=true pois e o primeiro load)
-  try{
-    var r=localStorage.getItem('maint_v5');
-    if(r){ aplicarDados(JSON.parse(r), true); }
-  }catch(e){}
-  // Depois sincroniza com Supabase
+function load(callback){
+  // Busca dados APENAS do Supabase - sem localStorage
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(rows&&rows[0]&&rows[0].valor){
-        var aplicou=aplicarDados(rows[0].valor, false);
-        if(aplicou){
-          // Dados do servidor eram mais novos - atualiza cache local e re-renderiza
-          try{localStorage.setItem('maint_v5',JSON.stringify(rows[0].valor));}catch(e){}
-          if(currentRole) render();
-        }
+        aplicarDados(rows[0].valor, true);
       }
+      if(callback) callback();
     })
-    .catch(function(e){ console.warn('Supabase indisponivel, usando cache local:',e); });
+    .catch(function(e){
+      console.warn('Erro ao carregar Supabase:',e);
+      if(callback) callback();
+    });
 }
 
 // Migração da chave antiga
@@ -897,7 +887,7 @@ function render(){
   var showFiltroTec=currentRole==='adm'&&['pendentes','aberto','andamento','encerrado'].indexOf(currentTab)>=0;
   var temFiltroTec=!!toolbarEl.querySelector('#filtro-tec');
   if(showFiltroTec&&!temFiltroTec){
-    var opsTec=tecnicos.map(function(t){
+    var opsTec=meusTecnicos().map(function(t){
       return '<option value="'+t.id+'">'+t.nome.split(' ').slice(0,2).join(' ')+'</option>';
     }).join('');
     toolbarEl.innerHTML=
@@ -1174,7 +1164,7 @@ function renderPorTecnico(){
     return;
   }
   var html='';
-  tecnicos.forEach(function(tec){
+  meusTecnicos().forEach(function(tec){
     var chs=chamados.filter(function(x){ return x.tecnicoId===tec.id; });
     if(!chs.length) return;
     var ini=tec.nome.split(' ').slice(0,2).map(function(p){return p[0];}).join('').toUpperCase();
@@ -1203,12 +1193,19 @@ function renderPorTecnico(){
   el.innerHTML=html;
 }
 
+function meusTecnicos(){
+  if(currentRole==='adm'&&currentAnalista){
+    return tecnicos.filter(function(t){return !t.analistaId||t.analistaId===currentAnalista.id;});
+  }
+  return tecnicos;
+}
 function renderTecnicos(){
-  document.getElementById('counter').textContent=tecnicos.length;
+  var lista=meusTecnicos();
+  document.getElementById('counter').textContent=lista.length;
   var sb=document.getElementById('stat-bar');
   if(sb) sb.innerHTML='';
   var el=document.getElementById('list-content');
-  var html=tecnicos.length?tecnicos.map(t=>{
+  var html=lista.length?lista.map(t=>{
     var ab=chamados.filter(c=>c.tecnicoId===t.id&&c.status!=='encerrado').length;
     return `<div class="tec-card full-width">
       <div class="tec-av">${iniciais(t.nome)}</div>
@@ -1396,7 +1393,7 @@ function openModal(tipo,id){
   // ATRIBUIR TÉCNICO
   else if(tipo==='atrib'){
     var c=editTarget;
-    var opsTec=tecnicos.map(t=>`<option value="${t.id}" ${c.tecnicoId===t.id?'selected':''}>${t.nome}</option>`).join('');
+    var opsTec=meusTecnicos().map(t=>`<option value="${t.id}" ${c.tecnicoId===t.id?'selected':''}>${t.nome}</option>`).join('');
     html+=`
       <div class="modal-header"><span class="modal-title">Atribuir técnico</span><button class="close-btn" onclick="closeModal()">X</button></div>
       <div class="info-box">${trunc(tituloValido(c.titulo)?c.titulo:('OS '+c.effortOS),65)}<br><span style="font-size:11px;opacity:.8;">${c.id}${c.unidade?' · '+c.unidade:''}</span></div>
@@ -1408,7 +1405,7 @@ function openModal(tipo,id){
         <label style="color:var(--or2);margin-bottom:6px;display:block;">Ou enviar para cotação</label>
         <p style="font-size:11px;color:var(--or2);margin-bottom:10px;">Selecione múltiplos técnicos. O chamado aparece para todos e você aprova o melhor.</p>
         <div id="cotacao-lista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
-          ${tecnicos.map(t=>`
+          ${meusTecnicos().map(t=>`
           <div class="cotacao-item" data-id="${t.id}" onclick="toggleCotacao(this)"
             style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;border:2px solid var(--border);background:white;cursor:pointer;transition:all .15s;">
             <div class="cotacao-check-box" style="width:20px;height:20px;border-radius:4px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:all .15s;"></div>
@@ -1577,7 +1574,9 @@ function salvarTec(id){
     var t=tecnicos.find(x=>x.id===id);
     if(t){t.nome=nome;t.whatsapp=whatsapp;t.empresa=empresa;}
   } else {
-    tecnicos.push({id:'TEC-'+Date.now(),nome,whatsapp,empresa});
+    tecnicos.push({id:'TEC-'+Date.now(),nome:nome,whatsapp:whatsapp,empresa:empresa,
+      analistaId:currentAnalista?currentAnalista.id:'',
+      analistaNome:currentAnalista?currentAnalista.nome:''});
   }
   save();closeModal();if(currentTab==='tecnicos') renderTecnicos();
   else render();
@@ -1804,29 +1803,49 @@ function closeModalOutside(e){
 // Polling no localStorage a cada 1s - extensão grava aqui
 // ---
 function verificarNovasOS(){
-  // Verifica extensao do Effort via localStorage (extensao nao tem acesso ao Supabase)
+  // A extensao grava OS em chave separada no localStorage
   try{
-    var raw=localStorage.getItem('maint_v5');
-    if(!raw||raw===_snap) return;
-    var data=JSON.parse(raw);
+    var raw=localStorage.getItem('effort_os_pendentes');
+    if(!raw) return;
+    var novosEffort=JSON.parse(raw);
+    if(!novosEffort||!novosEffort.length) return;
+    // Limpa a chave imediatamente para nao reprocessar
+    localStorage.removeItem('effort_os_pendentes');
     var idsAtuais=chamados.map(function(x){ return x.id; });
-    var dataChamados=data.chamados||[];
-    var novos=dataChamados.filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
+    var novos=novosEffort.filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
     if(novos.length===0) return;
-    // Marca analistaId nos novos chamados
     novos.forEach(function(ch){
       if(currentAnalista){
         ch.analistaId=currentAnalista.id;
         ch.analistaNome=currentAnalista.nome;
       }
     });
-    // Incorpora novos chamados preservando os locais
     chamados=chamados.concat(novos);
-    _snap=JSON.stringify({chamados:chamados});
-    // Salva no Supabase com nova versao
     save();
     render();
     toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
+  }catch(e){}
+  // Fallback: verifica chave antiga maint_v5
+  try{
+    var rawOld=localStorage.getItem('maint_v5');
+    if(!rawOld||rawOld===_snap) return;
+    _snap=rawOld;
+    var dataOld=JSON.parse(rawOld);
+    var idsAtuaisOld=chamados.map(function(x){ return x.id; });
+    var dataChamados=dataOld.chamados||[];
+    var novosOld=dataChamados.filter(function(x){ return idsAtuaisOld.indexOf(x.id)===-1; });
+    if(novosOld.length===0) return;
+    novosOld.forEach(function(ch){
+      if(currentAnalista&&!ch.analistaId){
+        ch.analistaId=currentAnalista.id;
+        ch.analistaNome=currentAnalista.nome;
+      }
+    });
+    chamados=chamados.concat(novosOld);
+    localStorage.removeItem('maint_v5');
+    save();
+    render();
+    toast('📥 '+novosOld.length+' nova'+(novosOld.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
   }catch(e){}
 }
 
@@ -1857,67 +1876,42 @@ function syncSupabase(){
 // INIT
 // ---
 migrar();
-load();
-_snap=localStorage.getItem('maint_v5')||'';
-// Verifica extensao Effort a cada 2s, sincroniza Supabase a cada 15s
+// Limpa localStorage antigo para nao interferir
+try{ localStorage.removeItem('maint_v5'); }catch(e){}
+
+// Carrega dados do Supabase ANTES de qualquer login
+load(function(){
+  // So executa login automatico APOS dados carregarem
+  _iniciarSessao();
+});
+
+// Verifica extensao Effort a cada 2s, sincroniza Supabase a cada 20s
 setInterval(function(){
   verificarNovasOS();
   if(currentRole) syncSupabase();
 },2000);
 
-// Persiste sessao do analista para nao perder ao recarregar
-(function(){
+function _iniciarSessao(){
   try {
-    var sess = sessionStorage.getItem('role_adm');
-    var admId = sessionStorage.getItem('analista_id');
-    if(sess === '1'){
-      currentRole='adm'; currentTecnico=null;
-      if(admId) currentAnalista=analistas.find(function(x){ return x.id===admId; })||null;
-      montarApp();
-      return;
-    }
-  } catch(e){}
-})();
-
-// Login via URL ?adm=1 (fallback quando montarApp não carrega na hora)
-(function(){
-  try {
-    var params = new URLSearchParams(window.location.search);
-    if(params.get('adm')==='1'){
+    var sess=sessionStorage.getItem('role_adm');
+    var admId=sessionStorage.getItem('analista_id');
+    if(sess==='1'){
       currentRole='adm';currentTecnico=null;
-      // Limpa URL
-      history.replaceState(null,'',window.location.pathname);
-      montarApp();
+      if(admId) currentAnalista=analistas.find(function(x){return x.id===admId;})||null;
+      montarApp();return;
     }
-  } catch(e){}
-})();
-
-// Login automático por URL - ?tec=ID
-(function(){
-  try {
-    var params = new URLSearchParams(window.location.search);
-    var tecId = params.get('tec');
-
-    if (tecId) {
-      // Veio via link do WhatsApp - tenta logar direto
-      var tec = tecnicos.find(function(t){ return t.id === decodeURIComponent(tecId); });
-      if (tec) {
-        // Login automático - vai direto para os chamados
-        currentRole = 'tecnico';
-        currentTecnico = tec;
-        montarApp();
-      } else {
-        // ID não encontrado (técnico ainda não cadastrado ou link antigo)
-        document.getElementById('adm-section').style.display = 'none';
-        document.getElementById('login-card-aviso').style.display = 'block';
+    var params=new URLSearchParams(window.location.search);
+    var tecId=params.get('tec');
+    if(tecId){
+      var tec=tecnicos.find(function(t){return t.id===decodeURIComponent(tecId);});
+      if(tec){currentRole='tecnico';currentTecnico=tec;montarApp();}
+      else{
+        document.getElementById('adm-section').style.display='none';
+        document.getElementById('login-card-aviso').style.display='block';
       }
-    } else {
-      // Acesso sem link de técnico - mostra APENAS o botão de Analista
-      // Técnicos só entram pelo link do WhatsApp
-      // Não mostra lista de técnicos para evitar acesso indevido
     }
-  } catch(e) {}
-})();
+  }catch(e){}
+}
 </script>
 </body>
 </html>
