@@ -497,7 +497,8 @@ var editTarget=null, tempFotos=[], prioSel='media';
 var _snap='';
 var _saving=false;
 var _saveQueue=false;
-var _lastSaveTime=0; // timestamp do ultimo save - bloqueia sync por 5s apos salvar
+var _lastSaveTime=0;
+var _versaoLocal=0; // timestamp da versao local - so aceita dados do servidor se mais novos
 
 // ---
 // PERSISTÊNCIA
@@ -510,12 +511,14 @@ function save(){
   // Salva no Supabase (com debounce para nao sobrecarregar)
   if(_saving){ _saveQueue=true; return; }
   _saving=true;
+  _versaoLocal=Date.now(); // atualiza versao local imediatamente
   var payload={
     chamados:chamados,
     tecnicos:tecnicos,
     nextId:nextId,
     statusDisponiveis:statusDisponiveis,
-    analistas:analistas
+    analistas:analistas,
+    _versao:_versaoLocal
   };
   supaUpsert('config',[{chave:'dados',valor:payload}])
     .then(function(){
@@ -531,30 +534,38 @@ var statusDisponiveis=['Aguardando peca','Aguardando visita','Em atendimento','A
 var analistas=[{id:'ADM-1',nome:'Analista 1'}];
 var currentAnalista=null;
 
-function aplicarDados(d){
-  if(!d) return;
+function aplicarDados(d, forcarAplicar){
+  if(!d) return false;
+  // So aplica dados do servidor se forem mais novos que os locais
+  var versaoRemota=d._versao||0;
+  if(!forcarAplicar && versaoRemota>0 && versaoRemota<=_versaoLocal){
+    return false; // dados locais sao mais novos, ignora
+  }
   chamados=d.chamados||[];
   tecnicos=d.tecnicos||[];
   nextId=d.nextId||1;
   if(d.statusDisponiveis&&d.statusDisponiveis.length) statusDisponiveis=d.statusDisponiveis;
   if(d.analistas&&d.analistas.length) analistas=d.analistas;
+  if(versaoRemota>0) _versaoLocal=versaoRemota;
+  return true;
 }
 
 function load(){
-  // Carrega cache local imediatamente para nao travar a UI
+  // Carrega cache local imediatamente (forcar=true pois e o primeiro load)
   try{
     var r=localStorage.getItem('maint_v5');
-    if(r){ aplicarDados(JSON.parse(r)); }
+    if(r){ aplicarDados(JSON.parse(r), true); }
   }catch(e){}
   // Depois sincroniza com Supabase
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(rows&&rows[0]&&rows[0].valor){
-        aplicarDados(rows[0].valor);
-        // Atualiza cache local
-        try{localStorage.setItem('maint_v5',JSON.stringify(rows[0].valor));}catch(e){}
-        // Re-renderiza se ja estiver logado
-        if(currentRole) render();
+        var aplicou=aplicarDados(rows[0].valor, false);
+        if(aplicou){
+          // Dados do servidor eram mais novos - atualiza cache local e re-renderiza
+          try{localStorage.setItem('maint_v5',JSON.stringify(rows[0].valor));}catch(e){}
+          if(currentRole) render();
+        }
       }
     })
     .catch(function(e){ console.warn('Supabase indisponivel, usando cache local:',e); });
@@ -1809,15 +1820,10 @@ function verificarNovasOS(){
         ch.analistaNome=currentAnalista.nome;
       }
     });
-    // Incorpora novos chamados no array atual
+    // Incorpora novos chamados preservando os locais
     chamados=chamados.concat(novos);
-    // Atualiza snap para evitar reprocessamento
-    var snapObj=JSON.parse(raw);
-    snapObj.chamados=chamados;
-    var novoSnap=JSON.stringify(snapObj);
-    _snap=novoSnap;
-    try{localStorage.setItem('maint_v5',novoSnap);}catch(e){}
-    // Salva no Supabase (fonte de verdade)
+    _snap=JSON.stringify({chamados:chamados});
+    // Salva no Supabase com nova versao
     save();
     render();
     toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS recebidas':' OS recebida')+' do Effort!');
@@ -1829,27 +1835,19 @@ var _lastSync=0;
 function syncSupabase(){
   var agora=Date.now();
   if(agora-_lastSync<15000) return;
-  // NAO sincroniza se houve save recente (aguarda 5s para Supabase confirmar)
-  if(agora-_lastSaveTime<5000) return;
   _lastSync=agora;
   supaGet('config','chave=eq.dados')
     .then(function(rows){
       if(!rows||!rows[0]||!rows[0].valor) return;
-      // Verifica novamente se nao houve save enquanto buscava
-      if(Date.now()-_lastSaveTime<5000) return;
       var d=rows[0].valor;
-      var idsAtuais=chamados.map(function(x){ return x.id; });
-      var novos=(d.chamados||[]).filter(function(x){ return idsAtuais.indexOf(x.id)===-1; });
-      // So atualiza se ha chamados novos (de outro dispositivo)
-      // NAO sobrescreve mudancas de status feitas localmente
-      if(novos.length>0){
-        // Adiciona apenas os chamados novos, preserva os existentes locais
-        chamados=chamados.concat(novos);
-        var payload={chamados:chamados,tecnicos:tecnicos,nextId:nextId,
-          statusDisponiveis:statusDisponiveis,analistas:analistas};
-        try{localStorage.setItem('maint_v5',JSON.stringify(payload));}catch(e){}
+      var versaoRemota=d._versao||0;
+      // So aplica se versao remota for estritamente mais nova que a local
+      if(versaoRemota<=_versaoLocal) return;
+      var aplicou=aplicarDados(d, false);
+      if(aplicou){
+        try{localStorage.setItem('maint_v5',JSON.stringify(d));}catch(e){}
         if(currentRole) render();
-        toast('📥 '+novos.length+' novo'+(novos.length>1?'s chamados':'  chamado')+' recebido'+(novos.length>1?'s':'')+'!');
+        toast('🔄 Sistema atualizado por outro dispositivo!');
       }
     })
     .catch(function(){});
