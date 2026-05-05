@@ -1519,7 +1519,7 @@ function openModal(tipo,id){
           <div class="photo-grid" id="photo-preview">${c.fotos&&c.fotos.length?c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join(''):''}</div>
           <label style="cursor:pointer;display:inline-block;margin-top:8px;">
             <div class="photo-add">📷<span>Foto</span></div>
-           <input type="file" accept="image/*" multiple style="display:none;" onchange="addFotos(event)"/>
+            <input type="file" accept="image/*" multiple style="display:none;" onchange="addFotos(event)"/>
           </label>
         </div>
       `:''}
