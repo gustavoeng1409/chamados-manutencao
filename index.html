@@ -471,6 +471,95 @@ var SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 
 var SUPA_HDR={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
 
+// ================================================================
+// SUPABASE STORAGE - fotos de chamados
+// ================================================================
+var SUPA_BUCKET='fotos-chamados';
+var SUPA_STORAGE_URL=SUPA_URL+'/storage/v1/object/'+SUPA_BUCKET;
+var SUPA_STORAGE_PUB=SUPA_URL+'/storage/v1/object/public/'+SUPA_BUCKET;
+
+// Comprime imagem para max 1280px de largura, qualidade 0.82
+// Recebe File ou data URL, retorna Blob (jpeg)
+function comprimirImagem(input){
+  return new Promise(function(resolve,reject){
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var img=new Image();
+      img.onload=function(){
+        var maxW=1280, maxH=1280;
+        var w=img.width, h=img.height;
+        if(w>maxW||h>maxH){
+          var ratio=Math.min(maxW/w,maxH/h);
+          w=Math.round(w*ratio);
+          h=Math.round(h*ratio);
+        }
+        var canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        var ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        canvas.toBlob(function(blob){
+          if(!blob){ reject(new Error('Falha ao comprimir')); return; }
+          resolve(blob);
+        },'image/jpeg',0.82);
+      };
+      img.onerror=function(){ reject(new Error('Imagem invalida')); };
+      img.src=ev.target.result;
+    };
+    reader.onerror=function(){ reject(new Error('Falha ao ler arquivo')); };
+    if(input instanceof Blob) reader.readAsDataURL(input);
+    else { // data URL string
+      var img2=new Image();
+      img2.onload=function(){
+        var maxW=1280, maxH=1280;
+        var w=img2.width, h=img2.height;
+        if(w>maxW||h>maxH){
+          var ratio=Math.min(maxW/w,maxH/h);
+          w=Math.round(w*ratio); h=Math.round(h*ratio);
+        }
+        var canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img2,0,0,w,h);
+        canvas.toBlob(function(blob){ if(blob) resolve(blob); else reject(new Error('Falha')); },'image/jpeg',0.82);
+      };
+      img2.onerror=function(){ reject(new Error('Imagem invalida')); };
+      img2.src=input;
+    }
+  });
+}
+
+// Upload de Blob para Storage. chamadoId = pasta. Retorna URL publica.
+function uploadFotoStorage(blob, chamadoId){
+  var nomeArq=Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
+  var path=encodeURIComponent(chamadoId||'sem-id')+'/'+nomeArq;
+  return fetch(SUPA_STORAGE_URL+'/'+path,{
+    method:'POST',
+    headers:{
+      'apikey':SUPA_KEY,
+      'Authorization':'Bearer '+SUPA_KEY,
+      'Content-Type':'image/jpeg',
+      'x-upsert':'false'
+    },
+    body:blob
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error('Upload falhou '+r.status+': '+t); });
+    return SUPA_STORAGE_PUB+'/'+path;
+  });
+}
+
+// Deleta foto do Storage por URL publica. Falha silenciosa.
+function deletarFotoStorage(url){
+  if(!url||url.indexOf(SUPA_STORAGE_PUB)!==0) return Promise.resolve();
+  var path=url.substring(SUPA_STORAGE_PUB.length+1);
+  return fetch(SUPA_STORAGE_URL+'/'+path,{
+    method:'DELETE',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+  }).catch(function(){});
+}
+
+// Detecta se string e' base64 (foto antiga) ou URL (foto nova)
+function isFotoBase64(f){ return typeof f==='string' && f.indexOf('data:')===0; }
+function isFotoUrl(f){ return typeof f==='string' && f.indexOf('http')===0; }
+
 function supaGet(table,eq){
   var url=SUPA_URL+'/rest/v1/'+table+'?select=*';
   if(eq) url+='&'+eq;
@@ -504,7 +593,10 @@ var _saveQueue=false;
 var _lastSaveTime=0;
 var _lastSaveConfirmed=0;
 var _tsServidor=0; // timestamp da ultima versao que recebemos do servidor
-var _lastSync=0;
+var _lastSync=Date.now(); // BUG 4: inicia com timestamp atual para evitar burst no boot
+var _modalAberto=false; // BUG 1+5: bloqueia aplicar dados durante modal aberto
+var _pendingSyncData=null; // dados de sync que esperam modal fechar
+var _migrandoFotos=false; // flag para migracao em andamento
 
 // ---
 // PERSISTÊNCIA
@@ -515,12 +607,12 @@ function save(){
   _saving=true;
   var ind=document.getElementById('save-indicator');
   if(ind){ ind.style.display='flex'; ind.textContent='Salvando...'; ind.style.background='rgba(0,0,0,0.6)'; }
-  // Limpa fotos base64 muito grandes antes de salvar para nao exceder limite
+  // Garantia: se sobrou alguma foto base64, tira do payload (deveria ja ter sido convertida em URL)
   var chamadosLimpos=chamados.map(function(ch){
     if(!ch.fotos||!ch.fotos.length) return ch;
     var copia=Object.assign({},ch);
-    // Mantem fotos mas limita a 3 por chamado para nao explodir o payload
-    copia.fotos=ch.fotos.slice(0,3);
+    // Mantem apenas URLs - base64 sao filtradas (devem ter sido migradas)
+    copia.fotos=ch.fotos.filter(function(f){ return isFotoUrl(f); });
     return copia;
   });
   var payload={
@@ -528,16 +620,10 @@ function save(){
     statusDisponiveis:statusDisponiveis, analistas:analistas,
     _ts:Date.now()
   };
-  // Verifica tamanho do payload
   var payloadStr=JSON.stringify(payload);
+  // Salvaguarda - nao deveria mais acontecer ja que fotos viram URLs leves
   if(payloadStr.length>4000000){
-    // Payload muito grande - remove fotos
-    chamadosLimpos=chamados.map(function(ch){
-      var copia=Object.assign({},ch); copia.fotos=[]; return copia;
-    });
-    payload.chamados=chamadosLimpos;
-    payloadStr=JSON.stringify(payload);
-    console.warn('Payload muito grande, fotos removidas. Tamanho:',payloadStr.length);
+    console.warn('Payload ainda grande:',payloadStr.length);
   }
   function tentarSalvar(tentativa){
     supaUpsert('config',[{chave:'dados',valor:payload}])
@@ -597,6 +683,58 @@ function load(callback){
       console.warn('Erro ao carregar Supabase:',e);
       if(callback) callback();
     });
+}
+
+// Migracao automatica de fotos base64 antigas para Storage
+// Roda no boot apos load(). Sobe cada foto base64, troca pela URL e salva.
+function migrarFotosBase64(){
+  if(_migrandoFotos) return;
+  // Conta quantas fotos base64 ainda existem
+  var pendentes=[];
+  chamados.forEach(function(ch){
+    if(!ch.fotos||!ch.fotos.length) return;
+    ch.fotos.forEach(function(f,i){
+      if(isFotoBase64(f)) pendentes.push({chamadoId:ch.id, idx:i});
+    });
+  });
+  if(!pendentes.length) return;
+  _migrandoFotos=true;
+  console.log('Migrando '+pendentes.length+' foto(s) antiga(s) para Storage...');
+  toast('Migrando '+pendentes.length+' foto(s) antiga(s)... aguarde.', 5000);
+  var processadas=0, erros=0;
+  function proxima(){
+    if(!pendentes.length){
+      _migrandoFotos=false;
+      if(processadas>0){
+        save();
+        toast('Migracao concluida: '+processadas+' foto(s) movidas'+(erros?', '+erros+' falha(s)':'')+'.', 4000);
+      }
+      return;
+    }
+    var item=pendentes.shift();
+    var ch=chamados.find(function(x){ return x.id===item.chamadoId; });
+    if(!ch||!ch.fotos||!ch.fotos[item.idx]||!isFotoBase64(ch.fotos[item.idx])){
+      // pode ter sido removida no meio do processo
+      proxima(); return;
+    }
+    var dataUrl=ch.fotos[item.idx];
+    comprimirImagem(dataUrl)
+      .then(function(blob){ return uploadFotoStorage(blob, ch.id); })
+      .then(function(url){
+        // Reverifica indice porque ch.fotos pode ter mudado
+        if(ch.fotos&&ch.fotos[item.idx]===dataUrl){
+          ch.fotos[item.idx]=url;
+          processadas++;
+        }
+        setTimeout(proxima, 200); // pequeno delay para nao saturar
+      })
+      .catch(function(e){
+        console.warn('Falha ao migrar foto:',e);
+        erros++;
+        setTimeout(proxima, 500);
+      });
+  }
+  proxima();
 }
 
 // Migração da chave antiga
@@ -1421,7 +1559,7 @@ function openModal(tipo,id){
         ${c.solucao?`<p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Solução:</strong> ${c.solucao}</p>`:''}
         ${c.obs?`<div class="modal-sep"></div><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Observação:</strong> ${c.obs}</p>`:''}
       </div>`:''}
-      ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec">Fotos</div><div class="photo-grid">${c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join('')}</div></div>`:''}
+      ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec">Fotos</div><div class="photo-grid">${c.fotos.map(function(f,i){return '<img src="'+f+'" class="photo-thumb foto-clicavel" data-foto-idx="'+i+'"/>';}).join('')}</div></div>`:''}
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="closeModal()">Fechar</button>
         ${isAdm&&c.status!=='encerrado'?`<button class="btn primary" onclick="openModal('atrib','${c.id}')">Atribuir</button>`:''}
@@ -1535,7 +1673,7 @@ function openModal(tipo,id){
         <div class="field"><label>Observações adicionais</label><textarea id="f-obs" placeholder="Informações extras...">${c.obs||''}</textarea></div>
         <div class="field">
           <label>Fotos do serviço</label>
-          <div class="photo-grid" id="photo-preview">${c.fotos&&c.fotos.length?c.fotos.map(f=>`<img src="${f}" class="photo-thumb" onclick="verFoto('${f}')"/>`).join(''):''}</div>
+          <div class="photo-grid" id="photo-preview">${c.fotos&&c.fotos.length?c.fotos.map(function(f,i){return '<img src="'+f+'" class="photo-thumb foto-clicavel" data-foto-idx="'+i+'"/>';}).join(''):''}</div>
           <label style="cursor:pointer;display:inline-block;margin-top:8px;">
             <div class="photo-add">📷<span>Foto</span></div>
             <input type="file" accept="image/*" multiple style="display:none;" onchange="addFotos(event)"/>
@@ -1565,6 +1703,13 @@ function openModal(tipo,id){
   document.getElementById('modal-overlay').style.display='flex';
   document.getElementById('modal-overlay').style.zIndex='9999';
   document.body.style.overflow='hidden';
+  _modalAberto=true; // BUG 1+5: bloqueia sync de aplicar dados durante edicao
+  // BUG 3: anexa listeners para fotos clicaveis (em vez de onclick inline com aspas)
+  body.querySelectorAll('.foto-clicavel').forEach(function(img){
+    img.addEventListener('click', function(){
+      verFoto(this.getAttribute('src'));
+    });
+  });
 }
 
 function selPrio(el,prio){
@@ -1852,6 +1997,12 @@ function excluirChamado(id){
   var ch=chamados.find(function(x){ return x.id===id; });
   if(!ch) return;
   if(!confirm('Excluir permanentemente o chamado '+id+'? Esta acao nao pode ser desfeita.')) return;
+  // Deleta fotos do Storage (falha silenciosa, nao bloqueia)
+  if(ch.fotos&&ch.fotos.length){
+    ch.fotos.forEach(function(url){
+      if(isFotoUrl(url)) deletarFotoStorage(url);
+    });
+  }
   chamados=chamados.filter(function(x){ return x.id!==id; });
   save();closeModal();render();toast('Chamado excluido.');
 }
@@ -1888,21 +2039,63 @@ function copiarChamadosTec(tecId){
 // FOTOS
 // ---
 function addFotos(e){
-  Array.from(e.target.files).forEach(f=>{
-    var r=new FileReader();
-    r.onload=ev=>{
-      tempFotos.push(ev.target.result);
-      var p=document.getElementById('photo-preview');
-      if(p){var img=document.createElement('img');img.src=ev.target.result;img.className='photo-thumb';p.appendChild(img);}
-    };
-    r.readAsDataURL(f);
+  var arquivos=Array.from(e.target.files||[]);
+  if(!arquivos.length) return;
+  var p=document.getElementById('photo-preview');
+  // ID do chamado em edicao para organizar pastas
+  var chamadoId=(editTarget&&editTarget.id)?editTarget.id:'novo';
+  arquivos.forEach(function(f){
+    if(!f.type||f.type.indexOf('image/')!==0){ toast('Arquivo nao e imagem.'); return; }
+    // Adiciona placeholder no preview enquanto sobe
+    var placeholder=null;
+    if(p){
+      placeholder=document.createElement('div');
+      placeholder.className='photo-thumb';
+      placeholder.style.cssText='width:72px;height:72px;border-radius:var(--rxs);background:var(--surface2);border:1px dashed var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3);';
+      placeholder.textContent='Subindo...';
+      p.appendChild(placeholder);
+    }
+    comprimirImagem(f)
+      .then(function(blob){ return uploadFotoStorage(blob, chamadoId); })
+      .then(function(url){
+        tempFotos.push(url);
+        if(placeholder){
+          placeholder.remove();
+          var img=document.createElement('img');
+          img.src=url; img.className='photo-thumb foto-clicavel';
+          img.addEventListener('click', function(){ verFoto(url); });
+          if(p) p.appendChild(img);
+        }
+      })
+      .catch(function(err){
+        console.error('Falha ao subir foto:',err);
+        if(placeholder){
+          placeholder.style.color='var(--red)';
+          placeholder.textContent='Erro';
+          setTimeout(function(){ if(placeholder) placeholder.remove(); },3000);
+        }
+        toast('Erro ao enviar foto. Tente novamente.');
+      });
   });
+  // Limpa o input para permitir selecionar a mesma foto novamente
+  e.target.value='';
 }
 function verFoto(src){
+  if(!src) return;
   var ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:500;display:flex;align-items:center;justify-content:center;';
-  ov.innerHTML=`<img src="${src}" style="max-width:95%;max-height:90vh;border-radius:10px;"/>
-    <button onclick="this.parentNode.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;">X</button>`;
+  ov.className='foto-overlay'; // BUG 12: classe permite limpeza
+  // BUG 2: z-index 10000 fica acima do modal-overlay (9999)
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:10000;display:flex;align-items:center;justify-content:center;';
+  var img=document.createElement('img');
+  img.src=src;
+  img.style.cssText='max-width:95%;max-height:90vh;border-radius:10px;';
+  var btn=document.createElement('button');
+  btn.textContent='X';
+  btn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;';
+  btn.addEventListener('click', function(e){ e.stopPropagation(); ov.remove(); });
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  ov.appendChild(img);
+  ov.appendChild(btn);
   document.body.appendChild(ov);
 }
 
@@ -1912,6 +2105,15 @@ function verFoto(src){
 function closeModal(){
   document.getElementById('modal-overlay').style.display='none';
   document.body.style.overflow='';tempFotos=[];
+  _modalAberto=false; // BUG 1+5: libera sync
+  // BUG 12: remove overlays orfaos de fotos abertas em fullscreen
+  document.querySelectorAll('.foto-overlay').forEach(function(el){ el.remove(); });
+  // BUG 1+5: aplica sync que ficou pendente durante modal aberto
+  if(_pendingSyncData){
+    var d=_pendingSyncData; _pendingSyncData=null;
+    aplicarDados(d,true);
+    if(currentRole) render();
+  }
 }
 function closeModalOutside(e){
   if(e.target===document.getElementById('modal-overlay')) closeModal();
@@ -1948,7 +2150,7 @@ function verificarNovasOS(){
   }catch(e){}
 }
 
-// Sincronizacao em tempo real - busca atualizacoes do Supabase a cada 15s
+// Sincronizacao em tempo real - busca atualizacoes do Supabase a cada 5-8s
 function syncSupabase(){
   var agora=Date.now();
   var intervalo=currentRole==='tecnico'?5000:8000;
@@ -1961,6 +2163,12 @@ function syncSupabase(){
       var tsRemoto=d._ts||0;
       if(tsRemoto>_tsServidor){
         _tsServidor=tsRemoto;
+        // BUG 1+5: se modal esta aberto, nao sobrescreve estado em memoria
+        // (preserva editTarget e formularios em edicao)
+        if(_modalAberto){
+          _pendingSyncData=d;
+          return;
+        }
         aplicarDados(d,true);
         if(currentRole) render();
       }
@@ -1982,6 +2190,9 @@ load(function(){
   _iniciarSessao();
   // Agora que dados estao prontos, verifica se extensao ja gravou alguma OS
   verificarNovasOS();
+  // Migracao automatica de fotos base64 antigas para Storage (em background)
+  // Aguarda 3s para nao travar a UI inicial
+  setTimeout(migrarFotosBase64, 3000);
 });
 
 // Verifica extensao Effort a cada 2s, sincroniza Supabase a cada 20s
