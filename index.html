@@ -585,6 +585,7 @@ function supaDelete(table,eq){
 // ESTADO
 // ================================================================
 var chamados=[], tecnicos=[], nextId=1;
+var effortOsImportadas=[]; // Item 9: lista de effortOS ja importadas alguma vez (persiste mesmo se chamado for excluido)
 var currentTab='pendentes', currentRole=null, currentTecnico=null;
 var editTarget=null, tempFotos=[], prioSel='media';
 var _snap='';
@@ -597,6 +598,10 @@ var _lastSync=Date.now(); // BUG 4: inicia com timestamp atual para evitar burst
 var _modalAberto=false; // BUG 1+5: bloqueia aplicar dados durante modal aberto
 var _pendingSyncData=null; // dados de sync que esperam modal fechar
 var _migrandoFotos=false; // flag para migracao em andamento
+// Item 5: filtro de periodo para chamados encerrados (so sessao, nao persiste)
+var _filtroEnc={tipo:'todos', de:null, ate:null};
+// Item 1: id do chamado com chat aberto (null = chat fechado). Nao usa _modalAberto para permitir sync.
+var _chatAberto=null;
 
 // ---
 // PERSISTÊNCIA
@@ -618,6 +623,7 @@ function save(){
   var payload={
     chamados:chamadosLimpos, tecnicos:tecnicos, nextId:nextId,
     statusDisponiveis:statusDisponiveis, analistas:analistas,
+    effortOsImportadas:effortOsImportadas,
     _ts:Date.now()
   };
   var payloadStr=JSON.stringify(payload);
@@ -667,6 +673,13 @@ function aplicarDados(d, forcar){
   nextId=d.nextId||1;
   if(d.statusDisponiveis&&d.statusDisponiveis.length) statusDisponiveis=d.statusDisponiveis;
   if(d.analistas&&d.analistas.length) analistas=d.analistas;
+  // Item 9: carrega lista de effortOS ja importadas. Backfill na primeira execucao.
+  if(d.effortOsImportadas&&d.effortOsImportadas.length){
+    effortOsImportadas=d.effortOsImportadas;
+  } else {
+    // Gera a lista a partir dos chamados existentes (primeira vez que rodando com esta versao)
+    effortOsImportadas=chamados.map(function(c){ return c.effortOS; }).filter(function(x){ return !!x; });
+  }
   return true;
 }
 
@@ -759,6 +772,53 @@ var trunc=(s,n)=>s&&s.length>n?s.slice(0,n)+'...':(s||'');
 var iniciais=n=>(n||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
 var fwNum=t=>(t||'').replace(/\D/g,'');
 var tituloValido=t=>t&&t.toLowerCase().indexOf('no elements')===-1&&t.toLowerCase().indexOf('consider changing')===-1;
+
+// Item 5: verifica se um chamado encerrado esta dentro do filtro de periodo
+// Usa dataConserto (formato YYYY-MM-DD vindo do input type=date)
+function chamadoNoPeriodo(ch){
+  if(_filtroEnc.tipo==='todos') return true;
+  if(!ch.dataConserto) return false; // sem data, nao passa em nenhum filtro especifico
+  var dc=ch.dataConserto;
+  // Constroi data local meio-dia para evitar problemas de timezone
+  var dataCh=new Date(dc+'T12:00:00');
+  var hoje=new Date();
+  hoje.setHours(0,0,0,0);
+  if(_filtroEnc.tipo==='hoje'){
+    var dH=new Date(hoje); dH.setHours(0,0,0,0);
+    return dataCh.toDateString()===new Date().toDateString();
+  }
+  if(_filtroEnc.tipo==='semana'){
+    // Ultimos 7 dias (incluindo hoje)
+    var seteDias=new Date(hoje); seteDias.setDate(seteDias.getDate()-6);
+    return dataCh>=seteDias && dataCh<=new Date(hoje.getTime()+86400000);
+  }
+  if(_filtroEnc.tipo==='mes'){
+    var hojeD=new Date();
+    return dataCh.getFullYear()===hojeD.getFullYear() && dataCh.getMonth()===hojeD.getMonth();
+  }
+  if(_filtroEnc.tipo==='personalizado'){
+    if(_filtroEnc.de){
+      var deD=new Date(_filtroEnc.de+'T00:00:00');
+      if(dataCh<deD) return false;
+    }
+    if(_filtroEnc.ate){
+      var ateD=new Date(_filtroEnc.ate+'T23:59:59');
+      if(dataCh>ateD) return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+function setFiltroEnc(tipo){
+  _filtroEnc.tipo=tipo;
+  if(tipo!=='personalizado'){ _filtroEnc.de=null; _filtroEnc.ate=null; }
+  render();
+}
+function setFiltroEncData(campo, valor){
+  _filtroEnc[campo]=valor||null;
+  render();
+}
 
 var PRIO={alta:'🔴 Alta',media:'🟡 Média',baixa:'🟢 Baixa'};
 var STATUS={aberto:'Aberto',andamento:'Em andamento',encerrado:'Encerrado'};
@@ -925,8 +985,11 @@ function getList(){
       list=list.filter(function(x){ return x.tecnicoId===tid && x.status==='andamento'; });
     } else if(currentTab==='enc-tec'){
       list=list.filter(function(x){ return x.tecnicoId===tid && x.status==='encerrado'; });
+      list=list.filter(chamadoNoPeriodo); // Item 5
     } else if(currentTab==='nota'){
       list=list.filter(function(x){ return x.tecnicoId===tid && x.status==='encerrado'; });
+      // Nota fiscal tambem usa o filtro de periodo
+      list=list.filter(chamadoNoPeriodo); // Item 5
     }
   } else {
     // ADM: primeiro filtra pelo analista logado
@@ -949,6 +1012,8 @@ function getList(){
       });
     } else if(currentTab==='encerrado'){
       list=list.filter(function(x){ return x.status==='encerrado'; });
+      // Item 5: aplica filtro de periodo
+      list=list.filter(chamadoNoPeriodo);
     }
     // Filtro por tecnico (opcional na toolbar)
     if(filtroTec){
@@ -989,7 +1054,8 @@ var ICONS={
   aguardando:'⏳ Aguardando',
   aprovar:'✓',
   reprovar:'✗',
-  reabrir:'↩ Reabrir'
+  reabrir:'↩ Reabrir',
+  chat:'💬 Conversar'
 };
 
 function reivindicarOrfaos(){
@@ -1037,7 +1103,8 @@ function gerarBtnWhats(id){
 function render(){
   if(currentTab==='tecnicos'){renderTecnicos();return;}
   if(currentTab==='status-cfg'){renderStatusCfg();return;}
-  if(currentTab==='nota'){renderNotaFiscal();return;}
+  // Item 5: aba 'nota' agora segue o fluxo normal para que o toolbar com filtro de periodo seja construido
+  // O render dos cards da nota acontece logo abaixo apos o toolbar estar pronto
 
   // Stats bar (somente ADM)
   var sb=document.getElementById('stat-bar');
@@ -1058,22 +1125,58 @@ function render(){
   var lista=getList();
   document.getElementById('counter').textContent=lista.length;
 
-  // Toolbar com filtro por tecnico - reconstroi apenas quando necessario
+  // Toolbar - construida dinamicamente conforme a aba
+  // Item 5: filtro de periodo aparece em encerrado/nota; filtro tec aparece nas abas ADM com cards
   var toolbarEl=document.getElementById('toolbar-bar');
   var showFiltroTec=currentRole==='adm'&&['pendentes','aberto','andamento','encerrado'].indexOf(currentTab)>=0;
-  var temFiltroTec=!!toolbarEl.querySelector('#filtro-tec');
-  if(showFiltroTec&&!temFiltroTec){
-    var opsTec=meusTecnicos().map(function(t){
-      return '<option value="'+t.id+'">'+t.nome.split(' ').slice(0,2).join(' ')+'</option>';
-    }).join('');
-    toolbarEl.innerHTML=
-      '<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);"/>'+
-      '<select id="filtro-tec" onchange="render()" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);max-width:180px;font-family:var(--font);">'+
-      '<option value="">Todos tecnicos</option>'+opsTec+
-      '</select>';
-  } else if(!showFiltroTec&&(temFiltroTec||!toolbarEl.querySelector('#search-input'))){
-    toolbarEl.innerHTML='<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);"/>';
+  var showFiltroPer=currentTab==='encerrado'||currentTab==='enc-tec'||currentTab==='nota';
+  // Assinatura para evitar rebuild a cada render (preserva foco no input de busca)
+  var sigAtual='ft='+(showFiltroTec?1:0)+'|fp='+(showFiltroPer?1:0)+'|tp='+_filtroEnc.tipo;
+  if(toolbarEl.getAttribute('data-sig')!==sigAtual){
+    toolbarEl.setAttribute('data-sig', sigAtual);
+    var qSalvo=((toolbarEl.querySelector('#search-input')||{}).value)||'';
+    var tSalvo=((toolbarEl.querySelector('#filtro-tec')||{}).value)||'';
+    var htmlTb='<input id="search-input" placeholder="OS, equipamento, setor..." oninput="render()" value="'+qSalvo.replace(/"/g,'&quot;')+'" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);font-family:var(--font);"/>';
+    if(showFiltroPer){
+      htmlTb+='<select id="filtro-per" onchange="setFiltroEnc(this.value)" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);max-width:160px;font-family:var(--font);">'+
+        '<option value="todos"'+(_filtroEnc.tipo==='todos'?' selected':'')+'>Todos periodos</option>'+
+        '<option value="hoje"'+(_filtroEnc.tipo==='hoje'?' selected':'')+'>Hoje</option>'+
+        '<option value="semana"'+(_filtroEnc.tipo==='semana'?' selected':'')+'>Esta semana</option>'+
+        '<option value="mes"'+(_filtroEnc.tipo==='mes'?' selected':'')+'>Este mes</option>'+
+        '<option value="personalizado"'+(_filtroEnc.tipo==='personalizado'?' selected':'')+'>Personalizado</option>'+
+        '</select>';
+    }
+    if(showFiltroTec){
+      var opsTec=meusTecnicos().map(function(t){
+        var sel=(tSalvo===t.id)?' selected':'';
+        return '<option value="'+t.id+'"'+sel+'>'+t.nome.split(' ').slice(0,2).join(' ')+'</option>';
+      }).join('');
+      htmlTb+='<select id="filtro-tec" onchange="render()" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;background:var(--surface2);max-width:160px;font-family:var(--font);">'+
+        '<option value="">Todos tecnicos</option>'+opsTec+
+        '</select>';
+    }
+    toolbarEl.innerHTML=htmlTb;
   }
+  // Inputs de data quando filtro = personalizado (sempre re-renderiza para refletir mudanca)
+  var datasWrap=document.getElementById('filtro-per-datas');
+  if(showFiltroPer && _filtroEnc.tipo==='personalizado'){
+    if(!datasWrap){
+      datasWrap=document.createElement('div');
+      datasWrap.id='filtro-per-datas';
+      datasWrap.style.cssText='display:flex;gap:8px;padding:0 16px 10px;background:var(--card);border-bottom:1px solid var(--border);align-items:center;';
+      toolbarEl.parentNode.insertBefore(datasWrap, toolbarEl.nextSibling);
+    }
+    datasWrap.innerHTML=
+      '<span style="font-size:11px;color:var(--text3);font-weight:600;">De</span>'+
+      '<input type="date" value="'+(_filtroEnc.de||'')+'" onchange="setFiltroEncData(\'de\',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--rxs);font-size:12px;background:var(--surface2);font-family:var(--font);"/>'+
+      '<span style="font-size:11px;color:var(--text3);font-weight:600;">ate</span>'+
+      '<input type="date" value="'+(_filtroEnc.ate||'')+'" onchange="setFiltroEncData(\'ate\',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--rxs);font-size:12px;background:var(--surface2);font-family:var(--font);"/>';
+  } else if(datasWrap){
+    datasWrap.remove();
+  }
+
+  // Item 5: nota fiscal renderiza apos toolbar (com filtro de periodo aplicado)
+  if(currentTab==='nota'){ renderNotaFiscal(); return; }
 
   // Aviso de chamados orfaos - aparece acima dos cards na aba Pendentes
   var elContent=document.getElementById('list-content');
@@ -1115,6 +1218,12 @@ function render(){
     var btnTec=gerarBtnTec(c,isTec,tecPendente);
     var btnAdm=gerarBtnAdm(c,isAdm,emCot);
     var btnWhats=isAdm&&c.nomeTecnico&&c.status!=='encerrado'&&!emCot?gerarBtnWhats(c.id):'';
+    // Item 1: botao de chat aparece quando chamado esta em andamento (analista E tecnico)
+    var btnChat='';
+    if(c.status==='andamento' && !emCot){
+      var temMsg=c.historico && c.historico.length;
+      btnChat=mkBtn('btn'+(temMsg?' primary':' ghost'),'abrirChat',[c.id],ICONS.chat+(temMsg?' ('+c.historico.length+')':''));
+    }
     var chipCot=emCot?'<span class="chip" style="background:#EDE9FE;color:#7C3AED;border-color:#C4B5FD;">Em cotacao</span>':'';
     var chipSemTec=!c.nomeTecnico&&isAdm&&!emCot?'<span class="chip warn">Sem tecnico</span>':'';
     var chipAnalista=''; // cada analista ve so os seus, chip desnecessario
@@ -1144,7 +1253,7 @@ function render(){
         '</div>'+
         '<div class="card-footer">'+
           gerarBtnVer(c.id)+
-          btnAdm+btnWhats+btnTec+
+          btnAdm+btnWhats+btnChat+btnTec+
         '</div>'+
       '</div>'+
     '</div>';
@@ -1240,11 +1349,15 @@ function renderNotaFiscal(){
   var sb=document.getElementById('stat-bar');
   if(sb) sb.innerHTML='';
   var el=document.getElementById('list-content');
-  var encerrados=chamados.filter(function(x){
-    return x.tecnicoId===currentTecnico.id && x.status==='encerrado';
-  });
+  // Item 5: usa getList que ja aplica o filtro de periodo selecionado
+  var encerrados=getList();
+  // Atualiza contador da topbar
+  document.getElementById('counter').textContent=encerrados.length;
   if(!encerrados.length){
-    el.innerHTML='<div class="empty"><div class="empty-icon">📄</div><h3>Nenhum chamado encerrado</h3><p>Os chamados encerrados aparecem aqui para gerar nota fiscal.</p></div>';
+    var msg=_filtroEnc.tipo==='todos'
+      ? 'Os chamados encerrados aparecem aqui para gerar nota fiscal.'
+      : 'Nenhum chamado encerrado no periodo selecionado.';
+    el.innerHTML='<div class="empty"><div class="empty-icon">📄</div><h3>Nenhum chamado encerrado</h3><p>'+msg+'</p></div>';
     return;
   }
   // Estado de seleção
@@ -1559,6 +1672,7 @@ function openModal(tipo,id){
         ${c.solucao?`<p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Solução:</strong> ${c.solucao}</p>`:''}
         ${c.obs?`<div class="modal-sep"></div><p style="font-size:13px;line-height:1.6;color:var(--text2);"><strong>Observação:</strong> ${c.obs}</p>`:''}
       </div>`:''}
+      ${renderHistoricoBlock(c)}
       ${c.fotos&&c.fotos.length?`<div class="detail-block"><div class="sec">Fotos</div><div class="photo-grid">${c.fotos.map(function(f,i){return '<img src="'+f+'" class="photo-thumb foto-clicavel" data-foto-idx="'+i+'"/>';}).join('')}</div></div>`:''}
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="closeModal()">Fechar</button>
@@ -2010,8 +2124,11 @@ function excluirChamado(id){
 function copiarChamadosTec(tecId){
   var tec=tecnicos.find(function(t){ return t.id===tecId; });
   if(!tec){ toast('Tecnico nao encontrado'); return; }
-  var lista=chamados.filter(function(x){ return x.tecnicoId===tecId; });
-  if(!lista.length){ toast('Nenhum chamado para este tecnico'); return; }
+  // Item 7: copia apenas chamados em aberto e em andamento (nao encerrados)
+  var lista=chamados.filter(function(x){
+    return x.tecnicoId===tecId && x.status!=='encerrado';
+  });
+  if(!lista.length){ toast('Nenhum chamado ativo para este tecnico'); return; }
   var txt='Chamados de '+tec.nome+'\n\n';
   lista.forEach(function(ch,i){
     txt+=(i+1)+' - '+(ch.titulo||ch.id)+'\n';
@@ -2103,9 +2220,11 @@ function verFoto(src){
 // MODAL UTILS
 // ---
 function closeModal(){
+  var eraChat=!!_chatAberto; // Item 1: lembra se era chat para atualizar UI depois
   document.getElementById('modal-overlay').style.display='none';
   document.body.style.overflow='';tempFotos=[];
   _modalAberto=false; // BUG 1+5: libera sync
+  _chatAberto=null; // Item 1: limpa flag de chat (defensivo)
   // BUG 12: remove overlays orfaos de fotos abertas em fullscreen
   document.querySelectorAll('.foto-overlay').forEach(function(el){ el.remove(); });
   // BUG 1+5: aplica sync que ficou pendente durante modal aberto
@@ -2113,10 +2232,268 @@ function closeModal(){
     var d=_pendingSyncData; _pendingSyncData=null;
     aplicarDados(d,true);
     if(currentRole) render();
+  } else if(eraChat && currentRole){
+    // Item 1: atualiza contador de mensagens no botao do card
+    render();
   }
 }
 function closeModalOutside(e){
   if(e.target===document.getElementById('modal-overlay')) closeModal();
+}
+
+// ---
+// CHAT (Item 1) - comunicacao durante andamento
+// ---
+// Escapa HTML para evitar injecao quando renderiza textos do usuario
+function escHtml(s){
+  if(s===null||s===undefined) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Renderiza a lista de mensagens do chat (apenas o conteudo do chat-msgs)
+function renderChatMsgs(ch){
+  var msgs=(ch&&ch.historico)||[];
+  if(!msgs.length){
+    return '<div style="text-align:center;color:var(--text3);padding:24px 16px;font-size:13px;">Nenhuma mensagem ainda. Inicie a conversa abaixo.</div>';
+  }
+  return msgs.map(function(m){
+    // Identifica se a mensagem e do usuario atual para alinhar a direita
+    var ehMinha=false;
+    if(currentRole==='adm' && m.autorTipo==='adm' && currentAnalista && m.autorId===currentAnalista.id) ehMinha=true;
+    else if(currentRole==='tecnico' && m.autorTipo==='tec' && currentTecnico && m.autorId===currentTecnico.id) ehMinha=true;
+    var cor=ehMinha?'var(--or-bg)':'var(--surface2)';
+    var borda=ehMinha?'var(--or-border)':'var(--border)';
+    var align=ehMinha?'flex-end':'flex-start';
+    var d=new Date(m.ts||Date.now());
+    var hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    var dd=String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+    var ehHoje=d.toDateString()===new Date().toDateString();
+    var quando=ehHoje?hh:(dd+' '+hh);
+    var rotulo=m.autorTipo==='adm'?' (Analista)':' (Tecnico)';
+    var fotosHtml='';
+    if(m.fotos && m.fotos.length){
+      fotosHtml='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">'+
+        m.fotos.map(function(f){
+          return '<img src="'+escHtml(f)+'" class="chat-foto" data-src="'+escHtml(f)+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid '+borda+';"/>';
+        }).join('')+
+        '</div>';
+    }
+    return '<div style="display:flex;justify-content:'+align+';margin-bottom:8px;">'+
+      '<div style="max-width:82%;background:'+cor+';border:1px solid '+borda+';border-radius:10px;padding:8px 11px;">'+
+        '<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:3px;">'+escHtml(m.autor||'?')+rotulo+'</div>'+
+        (m.texto?'<div style="font-size:13px;line-height:1.4;color:var(--text);white-space:pre-wrap;word-break:break-word;">'+escHtml(m.texto)+'</div>':'')+
+        fotosHtml+
+        '<div style="font-size:10px;color:var(--text3);margin-top:4px;text-align:right;">'+quando+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// Anexa listener de clique nas miniaturas para abrir em fullscreen
+function _anexarListenersChatFotos(scope){
+  (scope||document).querySelectorAll('.chat-foto').forEach(function(img){
+    if(img.getAttribute('data-listener')==='1') return;
+    img.setAttribute('data-listener','1');
+    img.addEventListener('click', function(){
+      verFoto(this.getAttribute('data-src'));
+    });
+  });
+}
+
+// Renderiza o preview das fotos pendentes (selecionadas mas ainda nao enviadas)
+function renderChatFotosPreview(){
+  var el=document.getElementById('chat-fotos-preview');
+  if(!el) return;
+  if(!tempFotos.length){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='flex';
+  el.innerHTML=tempFotos.map(function(f,i){
+    return '<div style="position:relative;width:56px;height:56px;">'+
+      '<img src="'+escHtml(f)+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--or-border);"/>'+
+      '<button onclick="removerFotoChat('+i+')" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;padding:0;">X</button>'+
+      '</div>';
+  }).join('');
+}
+
+function removerFotoChat(idx){
+  tempFotos.splice(idx,1);
+  renderChatFotosPreview();
+}
+
+// Abre o modal de chat para um chamado em andamento
+function abrirChat(id){
+  var ch=chamados.find(function(x){ return x.id===id; });
+  if(!ch){ toast('Chamado nao encontrado'); return; }
+  if(ch.status!=='andamento'){ toast('Chat disponivel apenas em chamados em andamento'); return; }
+  editTarget=ch;
+  tempFotos=[];
+  _chatAberto=id;
+  // NAO seta _modalAberto=true - chat precisa receber atualizacoes de sync
+  var titulo=tituloValido(ch.titulo)?ch.titulo:('OS '+ch.effortOS);
+  var body=document.getElementById('modal-body');
+  var html=
+    '<div class="modal-handle"></div>'+
+    '<div class="modal-header">'+
+      '<span class="modal-title">💬 Conversa</span>'+
+      '<button class="close-btn" onclick="fecharChat()">X</button>'+
+    '</div>'+
+    '<div class="info-box" style="margin-bottom:10px;"><strong>'+escHtml(trunc(titulo,70))+'</strong><br>'+
+      '<span style="font-size:11px;opacity:.8;">'+escHtml(ch.id)+(ch.unidade?' · '+escHtml(ch.unidade):'')+(ch.nomeTecnico?' · '+escHtml(ch.nomeTecnico):'')+'</span></div>'+
+    '<div id="chat-msgs" style="max-height:50vh;overflow-y:auto;padding:8px 4px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:10px;">'+
+      renderChatMsgs(ch)+
+    '</div>'+
+    '<div id="chat-fotos-preview" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>'+
+    '<div class="field" style="margin-bottom:8px;">'+
+      '<textarea id="chat-input" placeholder="Digite uma mensagem..." style="min-height:60px;"></textarea>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;">'+
+      '<label class="btn" style="cursor:pointer;flex:0 0 auto;padding:10px 14px;">'+
+        '📷 Foto'+
+        '<input type="file" accept="image/*" multiple style="display:none;" onchange="addFotosChat(event)"/>'+
+      '</label>'+
+      '<button class="btn primary" style="flex:1;padding:10px;" onclick="enviarMensagemChat()">Enviar</button>'+
+    '</div>';
+  body.innerHTML=html;
+  document.getElementById('modal-overlay').style.display='flex';
+  document.getElementById('modal-overlay').style.zIndex='9999';
+  document.body.style.overflow='hidden';
+  _anexarListenersChatFotos(body);
+  // Scroll para o final ao abrir
+  var box=document.getElementById('chat-msgs');
+  if(box) box.scrollTop=box.scrollHeight;
+}
+
+// Fecha o chat (mantem comportamento similar ao closeModal mas especifico)
+function fecharChat(){
+  document.getElementById('modal-overlay').style.display='none';
+  document.body.style.overflow='';
+  tempFotos=[];
+  _chatAberto=null;
+  render();
+}
+
+// Re-renderiza apenas a lista de mensagens (chamado pelo sync quando novas msgs chegam)
+function atualizarChatSeAberto(){
+  if(!_chatAberto) return;
+  var ch=chamados.find(function(x){ return x.id===_chatAberto; });
+  if(!ch){
+    // Chamado foi excluido remotamente - fecha o chat
+    fecharChat();
+    toast('Este chamado foi removido.');
+    return;
+  }
+  var box=document.getElementById('chat-msgs');
+  if(!box) return;
+  // Preserva scroll-at-bottom para auto-scroll em novas mensagens
+  var noFundo=(box.scrollHeight-box.scrollTop-box.clientHeight)<60;
+  box.innerHTML=renderChatMsgs(ch);
+  _anexarListenersChatFotos(box);
+  if(noFundo) box.scrollTop=box.scrollHeight;
+  // Item 1: se status mudou para algo != andamento, exibe aviso (mas mantem leitura)
+  var aviso=document.getElementById('chat-aviso-status');
+  if(ch.status!=='andamento'){
+    if(!aviso){
+      aviso=document.createElement('div');
+      aviso.id='chat-aviso-status';
+      aviso.style.cssText='background:var(--amber-bg);border:1px solid var(--amber-bd);color:var(--amber);border-radius:var(--rxs);padding:8px 12px;font-size:12px;margin-bottom:8px;text-align:center;font-weight:600;';
+      aviso.textContent='Este chamado foi '+(ch.status==='encerrado'?'encerrado':'reaberto')+'. Conversa apenas em leitura.';
+      box.parentNode.insertBefore(aviso, box);
+    }
+  } else if(aviso){ aviso.remove(); }
+}
+
+// Envia mensagem (texto e/ou fotos) - acumula no historico
+function enviarMensagemChat(){
+  if(!_chatAberto) return;
+  var ch=chamados.find(function(x){ return x.id===_chatAberto; });
+  if(!ch){ toast('Chamado nao encontrado'); return; }
+  // Item 1: bloqueia envio se chamado nao esta mais em andamento
+  if(ch.status!=='andamento'){
+    toast('Este chamado nao esta mais em andamento. Conversa apenas em leitura.');
+    return;
+  }
+  var inp=document.getElementById('chat-input');
+  var texto=inp?inp.value.trim():'';
+  var fotos=tempFotos.slice(); // copia
+  if(!texto && !fotos.length){ toast('Escreva uma mensagem ou anexe uma foto.'); return; }
+  // Identifica autor
+  var autor='', autorId='', autorTipo='';
+  if(currentRole==='adm' && currentAnalista){
+    autor=currentAnalista.nome; autorId=currentAnalista.id; autorTipo='adm';
+  } else if(currentRole==='tecnico' && currentTecnico){
+    autor=currentTecnico.nome; autorId=currentTecnico.id; autorTipo='tec';
+  } else { return; }
+  if(!ch.historico) ch.historico=[];
+  ch.historico.push({
+    ts:Date.now(),
+    autor:autor,
+    autorId:autorId,
+    autorTipo:autorTipo,
+    texto:texto,
+    fotos:fotos
+  });
+  save();
+  // Limpa input
+  if(inp) inp.value='';
+  tempFotos=[];
+  renderChatFotosPreview();
+  // Re-renderiza a lista
+  var box=document.getElementById('chat-msgs');
+  if(box){
+    box.innerHTML=renderChatMsgs(ch);
+    _anexarListenersChatFotos(box);
+    box.scrollTop=box.scrollHeight;
+  }
+}
+
+// Adiciona fotos ao chat (mesma logica do addFotos mas atualiza o preview do chat)
+function addFotosChat(e){
+  var arquivos=Array.from(e.target.files||[]);
+  if(!arquivos.length) return;
+  var chamadoId=_chatAberto||'chat';
+  arquivos.forEach(function(f){
+    if(!f.type||f.type.indexOf('image/')!==0){ toast('Arquivo nao e imagem.'); return; }
+    comprimirImagem(f)
+      .then(function(blob){ return uploadFotoStorage(blob, chamadoId); })
+      .then(function(url){
+        tempFotos.push(url);
+        renderChatFotosPreview();
+      })
+      .catch(function(err){
+        console.error('Falha ao subir foto:',err);
+        toast('Erro ao enviar foto. Tente novamente.');
+      });
+  });
+  e.target.value='';
+}
+
+// Bloco de historico para o modal "Ver detalhes" - usado dentro do template literal
+function renderHistoricoBlock(ch){
+  var msgs=(ch&&ch.historico)||[];
+  if(!msgs.length) return '';
+  // Mostra ate as 5 ultimas mensagens em formato compacto
+  var ultimas=msgs.slice(-5);
+  var resumo=ultimas.map(function(m){
+    var d=new Date(m.ts||Date.now());
+    var hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    var dd=String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+    var ehHoje=d.toDateString()===new Date().toDateString();
+    var quando=ehHoje?hh:(dd+' '+hh);
+    var rotulo=m.autorTipo==='adm'?'Analista':'Tecnico';
+    var temFoto=m.fotos && m.fotos.length;
+    var corpo=m.texto?escHtml(m.texto):(temFoto?'<em style="color:var(--text3);">[anexou '+m.fotos.length+' foto(s)]</em>':'');
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.4;">'+
+      '<div style="font-weight:600;color:var(--text);font-size:11px;">'+escHtml(m.autor||'?')+' <span style="color:var(--text3);font-weight:400;">('+rotulo+' - '+quando+')</span></div>'+
+      '<div style="color:var(--text2);margin-top:2px;white-space:pre-wrap;word-break:break-word;">'+corpo+(temFoto&&m.texto?' <em style="color:var(--text3);">['+m.fotos.length+' foto(s)]</em>':'')+'</div>'+
+      '</div>';
+  }).join('');
+  var rotuloTotal=msgs.length>5?' (mostrando ultimas 5 de '+msgs.length+')':'';
+  return '<div class="detail-block">'+
+    '<div class="sec">Historico da conversa'+rotuloTotal+'</div>'+
+    resumo+
+    (ch.status==='andamento'?'<button class="btn primary" style="width:100%;margin-top:10px;padding:9px;" onclick="closeModal();setTimeout(function(){abrirChat(\''+ch.id+'\');},50);">💬 Abrir conversa</button>':'')+
+    '</div>';
 }
 
 // ---
@@ -2131,13 +2508,32 @@ function verificarNovasOS(){
     var novosArr=data.chamados||[];
     if(!novosArr.length){ _snap=raw; return; }
     var idsAtuais=chamados.map(function(x){return x.id;});
-    var novos=novosArr.filter(function(x){return idsAtuais.indexOf(x.id)===-1;});
-    if(!novos.length){ _snap=raw; return; }
-    // Marca analista nos novos chamados
+    var jaImportadas=0;
+    // Item 9: dedupa por effortOS - se ja foi importada alguma vez, ignora mesmo se excluida
+    var novos=novosArr.filter(function(x){
+      if(idsAtuais.indexOf(x.id)>=0) return false; // ja existe pelo id
+      if(x.effortOS && effortOsImportadas.indexOf(x.effortOS)>=0){
+        jaImportadas++;
+        return false; // ja foi importada alguma vez
+      }
+      return true;
+    });
+    if(!novos.length){
+      _snap=raw;
+      // Limpa o localStorage para nao reprocessar a mesma fila a cada poll
+      localStorage.removeItem('maint_v5');
+      _snap='';
+      if(jaImportadas>0) toast(jaImportadas+' OS ja importada(s) ignorada(s).');
+      return;
+    }
+    // Marca analista nos novos chamados e registra effortOS importada
     novos.forEach(function(ch){
       if(currentAnalista&&!ch.analistaId){
         ch.analistaId=currentAnalista.id;
         ch.analistaNome=currentAnalista.nome;
+      }
+      if(ch.effortOS && effortOsImportadas.indexOf(ch.effortOS)<0){
+        effortOsImportadas.push(ch.effortOS);
       }
     });
     chamados=chamados.concat(novos);
@@ -2146,7 +2542,9 @@ function verificarNovasOS(){
     _snap='';
     save();
     render();
-    toast('📥 '+novos.length+' nova'+(novos.length>1?'s OS':' OS')+' do Effort!');
+    var msg='📥 '+novos.length+' nova'+(novos.length>1?'s OS':' OS')+' do Effort!';
+    if(jaImportadas>0) msg+=' ('+jaImportadas+' duplicada(s) ignorada(s))';
+    toast(msg);
   }catch(e){}
 }
 
@@ -2170,6 +2568,11 @@ function syncSupabase(){
           return;
         }
         aplicarDados(d,true);
+        // Item 1: se chat esta aberto, atualiza apenas a lista de mensagens (preserva input)
+        if(_chatAberto){
+          atualizarChatSeAberto();
+          return;
+        }
         if(currentRole) render();
       }
     })
